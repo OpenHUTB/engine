@@ -1,0 +1,2 @@
+The latest version of this documentation can be found at:
+https://docs.unrealengine.com/en-us/Programming/Development/UnrealGameSync

@@ -1,0 +1,101 @@
+
+/*********************************************************************************
+ *							Niagara Vertex Factory data access
+ *********************************************************************************/
+
+//Currently we have no integer data being fed into the renderers.
+//Buffer<int> NiagaraParticleDataInt;
+//uint NiagaraIntDataOffset;
+//uint NiagaraIntDataStride;
+
+bool GetIsHalfAndFixupRegister(inout int RegisterIdx)
+{
+	// this was originally: bool IsHalf = RegisterIdx & (1 << 31);
+	// but the glsl comes out as -2147483648 and this appears to be upsetting some old android glsl compilers. Doing this forces an
+	// unsigned 2147483648u literal into glsl. FORT-286011.
+	const uint HalfBit = (1 << 31);
+	const bool bIsHalf = RegisterIdx & HalfBit;
+
+	RegisterIdx &= ~HalfBit;	
+
+	return bIsHalf;
+}
+
+float GetFloat(Buffer<float> FloatBuffer, int RegisterIdx, uint InstanceID)
+{
+	return FloatBuffer[RegisterIdx * NiagaraVFLooseParameters.NiagaraFloatDataStride + InstanceID];
+}
+
+float2 GetVec2(Buffer<float> FloatBuffer, int RegisterIdx, uint InstanceID)
+{
+	return float2(GetFloat(FloatBuffer, RegisterIdx + 0, InstanceID),
+				  GetFloat(FloatBuffer, RegisterIdx + 1, InstanceID));
+}
+
+float3 GetVec3(Buffer<float> FloatBuffer, int RegisterIdx, uint InstanceID)
+{
+	return float3(GetFloat(FloatBuffer, RegisterIdx + 0, InstanceID),
+				  GetFloat(FloatBuffer, RegisterIdx + 1, InstanceID),
+				  GetFloat(FloatBuffer, RegisterIdx + 2, InstanceID));
+}
+
+float4 GetVec4(Buffer<float> FloatBuffer, int RegisterIdx, uint InstanceID)
+{
+	return float4(GetFloat(FloatBuffer, RegisterIdx + 0, InstanceID),
+				  GetFloat(FloatBuffer, RegisterIdx + 1, InstanceID),
+				  GetFloat(FloatBuffer, RegisterIdx + 2, InstanceID),
+				  GetFloat(FloatBuffer, RegisterIdx + 3, InstanceID));
+}
+
+float GetFloat(int RegisterIdx, uint InstanceID)
+{
+	BRANCH
+	if (GetIsHalfAndFixupRegister(RegisterIdx))
+	{
+		return GetFloat(NiagaraVFLooseParameters.NiagaraParticleDataHalf, RegisterIdx, InstanceID);
+	}
+	else
+	{
+		return GetFloat(NiagaraVFLooseParameters.NiagaraParticleDataFloat, RegisterIdx, InstanceID);
+	}
+}
+
+float2 GetVec2(int RegisterIdx, uint InstanceID)
+{
+	BRANCH
+	if (GetIsHalfAndFixupRegister(RegisterIdx))
+	{
+		return GetVec2(NiagaraVFLooseParameters.NiagaraParticleDataHalf, RegisterIdx, InstanceID);
+	}
+	else
+	{
+		return GetVec2(NiagaraVFLooseParameters.NiagaraParticleDataFloat, RegisterIdx, InstanceID);
+	}
+}
+
+float3 GetVec3(int RegisterIdx, uint InstanceID)
+{
+	BRANCH
+	if (GetIsHalfAndFixupRegister(RegisterIdx))
+	{
+		return GetVec3(NiagaraVFLooseParameters.NiagaraParticleDataHalf, RegisterIdx, InstanceID);
+	}
+	else
+	{
+		return GetVec3(NiagaraVFLooseParameters.NiagaraParticleDataFloat, RegisterIdx, InstanceID);
+	}
+}
+
+float4 GetVec4(int RegisterIdx, uint InstanceID)
+{
+	BRANCH
+	if (GetIsHalfAndFixupRegister(RegisterIdx))
+	{
+		return GetVec4(NiagaraVFLooseParameters.NiagaraParticleDataHalf, RegisterIdx, InstanceID);
+	}
+	else
+	{
+		return GetVec4(NiagaraVFLooseParameters.NiagaraParticleDataFloat, RegisterIdx, InstanceID);
+	}
+}
+

@@ -1,0 +1,54 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "Engine/DeveloperSettings.h"
+#include "EditorPerformanceSettings.generated.h"
+
+
+UCLASS(minimalapi, config=EditorSettings, meta=(DisplayName = "Performance", ToolTip="Settings to tweak the performance of the editor"))
+class UEditorPerformanceSettings : public UDeveloperSettings
+{
+	GENERATED_UCLASS_BODY()
+	
+	/** When enabled, the application frame rate, memory and Unreal object count will be displayed in the main editor UI */
+	UPROPERTY(EditAnywhere, config, Category=EditorPerformance)
+	uint32 bShowFrameRateAndMemory:1;
+
+	/** Lowers CPU usage when the editor is in the background and not the active application */
+	UPROPERTY(EditAnywhere, config, Category=EditorPerformance, meta=(DisplayName="Use Less CPU when in Background") )
+	uint32 bThrottleCPUWhenNotForeground:1;
+
+	/** Disables realtime viewports by default when connected via a remote session */
+	UPROPERTY(EditAnywhere, config, Category = EditorPerformance, meta = (DisplayName = "Disable realtime viewports by default in Remote Sessions"))
+	uint32 bDisableRealtimeViewportsInRemoteSessions : 1;
+
+	/** When turned on, the editor will constantly monitor performance and adjust scalability settings for you when performance drops (disabled in debug) */
+	UPROPERTY(EditAnywhere, config, Category=EditorPerformance)
+	uint32 bMonitorEditorPerformance:1;
+
+	/** 
+	 * By default the editor will adjust scene scaling (quality) for high DPI in order to ensure consistent performance with very large render targets.
+	 * Enabling this will disable automatic adjusting and render at the full resolution of the viewport
+	 */
+	UPROPERTY(EditAnywhere, config, Category=EditorPerformance, meta=(DisplayName="Disable DPI Based Editor Viewport Scaling", ConsoleVariable="Editor.OverrideDPIBasedEditorViewportScaling"))
+	bool bOverrideDPIBasedEditorViewportScaling;
+
+	/** When enabled, Shared Data Cache performance notifications may be displayed when not connected to a shared cache */
+	UPROPERTY(EditAnywhere, config, Category = EditorPerformance, meta = (DisplayName = "Enable Shared Data Cache Performance Notifications"))
+	uint32 bEnableSharedDDCPerformanceNotifications : 1;
+
+	/** When enabled, a warning will appear in the viewport when your editors scalability settings are non-default and you may be viewing a low quality scene */
+	UPROPERTY(EditAnywhere, config, Category = EditorPerformance, meta = (DisplayName = "Enable Scalability Warning Indicator"))
+	uint32 bEnableScalabilityWarningIndicator : 1;
+
+public:
+	/** UObject interface */
+	virtual void PostInitProperties() override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+
+};
+

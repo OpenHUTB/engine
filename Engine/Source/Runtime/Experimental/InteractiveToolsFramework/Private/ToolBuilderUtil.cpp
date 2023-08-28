@@ -1,0 +1,111 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#include "ToolBuilderUtil.h"
+#include "CoreMinimal.h"
+#include "Algo/Accumulate.h"
+#include "GameFramework/Actor.h"
+#include "Engine/Selection.h"
+#include "Components/StaticMeshComponent.h"
+
+int ToolBuilderUtil::CountComponents(const FToolBuilderState& InputState, const TFunction<bool(UActorComponent*)>& Predicate)
+{
+	int nTypedComponents{};
+
+	if (InputState.SelectedComponents.Num() > 0)
+	{
+		nTypedComponents = Algo::CountIf(InputState.SelectedComponents, Predicate);
+	}
+	else
+	{
+		nTypedComponents =
+			Algo::TransformAccumulate(InputState.SelectedActors,
+									  [&Predicate](AActor* Actor)
+									  {
+										  return Algo::CountIf(Actor->GetComponents(), Predicate);
+									  },
+									  0);
+	}
+	return nTypedComponents;
+}
+
+
+
+
+UActorComponent* ToolBuilderUtil::FindFirstComponent(const FToolBuilderState& InputState, const TFunction<bool(UActorComponent*)>& Predicate)
+{
+	if (InputState.SelectedComponents.Num() > 0)
+	{
+		UActorComponent* const* ComponentPtr = InputState.SelectedComponents.FindByPredicate(Predicate);
+		if (ComponentPtr)
+		{
+			return *ComponentPtr;
+		}
+	}
+	else
+	{
+		for ( AActor* Actor : InputState.SelectedActors )
+		{
+			UActorComponent* const* ComponentPtr = Algo::FindByPredicate(Actor->GetComponents(), Predicate);
+			if (ComponentPtr)
+			{
+				return *ComponentPtr;
+			}
+		}
+	}
+	return nullptr;
+}
+
+
+
+
+TArray<UActorComponent*> ToolBuilderUtil::FindAllComponents(const FToolBuilderState& InputState, const TFunction<bool(UActorComponent*)>& Predicate)
+{
+	if (InputState.SelectedComponents.Num() > 0)
+	{
+		return InputState.SelectedComponents.FilterByPredicate(Predicate);
+	}
+	else
+	{
+		return Algo::TransformAccumulate(InputState.SelectedActors,
+										 [&Predicate](AActor* Actor)
+										 {
+											 TInlineComponentArray<UActorComponent*> ActorComponents;
+											 Actor->GetComponents(ActorComponents);
+											 return ActorComponents.FilterByPredicate(Predicate);
+										 },
+										 TArray<UActorComponent*>{},
+										 [](TArray<UActorComponent*> FoundComponents, TArray<UActorComponent*> ActorComponents)
+										 {
+											 FoundComponents.Insert(MoveTemp(ActorComponents), FoundComponents.Num());
+											 return FoundComponents;
+										 });
+	}
+}
+
+
+
+
+
+
+int32 ToolBuilderUtil::CountActors(const FToolBuilderState& InputState, const TFunction<bool(AActor*)>& Predicate)
+{
+	return Algo::CountIf(InputState.SelectedActors, Predicate);
+}
+
+
+AActor* ToolBuilderUtil::FindFirstActor(const FToolBuilderState& InputState, const TFunction<bool(AActor*)>& Predicate)
+{
+	AActor* const* Actor = InputState.SelectedActors.FindByPredicate(Predicate);
+	if (Actor)
+	{
+		return *Actor;
+	}
+	return nullptr;
+
+}
+
+TArray<AActor*> ToolBuilderUtil::FindAllActors(const FToolBuilderState& InputState, const TFunction<bool(AActor*)>& Predicate)
+{
+	return InputState.SelectedActors.FilterByPredicate(Predicate);
+}
+

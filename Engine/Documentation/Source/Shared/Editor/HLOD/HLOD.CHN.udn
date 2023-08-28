@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:3735956
+Availability:NoPublish
+Title:HLOD系统
+Crumbs:
+
+[EXCERPT:main]
+###分层细节级别（HLOD）
+是为了使用虚幻引擎4.11或更高版本提高项目性能而开发的，能够使项目保持较高的质量标准。 
+
+HLOD是一种从远处看时可将多个静态网格体Actor组合成一个静态网格体Actor的技术。这有助于减少需要在场景中渲染的Actor的数量，同时可降低每帧的绘图调用的数量，从而提高性能。 
+[VAR:ToolTipFullLink]
+Engine/HLOD
+[/VAR]
+[/EXCERPT:main]

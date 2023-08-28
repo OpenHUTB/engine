@@ -1,0 +1,14 @@
+#include "../Common.ush"
+
+Texture2D<uint2> CustomStencil;
+float2 TextureExtent;
+
+void Main(
+	float4 SvPosition : SV_POSITION,
+	out float4 OutColor : SV_Target0)
+{
+	float2 UV = SvPosition.xy / TextureExtent.xy;
+	float Stencil = CustomStencil.Load(int3(UV * TextureExtent, 0)).g;
+	Stencil /= 255.0f;
+	OutColor = float4(Stencil, Stencil, Stencil, 0);
+}

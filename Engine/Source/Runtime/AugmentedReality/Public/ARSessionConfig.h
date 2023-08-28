@@ -1,0 +1,505 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "UObject/ObjectMacros.h"
+#include "UObject/Object.h"
+#include "ARTrackable.h"
+#include "ARComponent.h"
+#include "Engine/DataAsset.h"
+
+#include "ARSessionConfig.generated.h"
+
+class UMaterialInterface;
+
+UENUM(BlueprintType, Category="AR AugmentedReality", meta=(Experimental))
+enum class EARWorldAlignment : uint8
+{
+	/** Aligns the world with gravity that is defined by vector (0, -1, 0) */
+	Gravity,
+
+	/**
+	 * Aligns the world with gravity that is defined by the vector (0, -1, 0)
+	 * and heading (w.r.t. True North) that is given by the vector (0, 0, -1)
+	 */
+	GravityAndHeading,
+
+	/** Aligns the world with the camera's orientation, which is best for Face AR */
+	Camera
+};
+
+UENUM(BlueprintType, Category = "AR AugmentedReality", meta = (Experimental))
+enum class EARSessionType : uint8
+{
+	/** AR tracking is not supported */
+	None,
+
+	/** AR session used to track orientation of the device only */
+	Orientation,
+
+	/** AR meant to overlay onto the world with tracking */
+	World,
+
+	/** AR meant to overlay onto a face */
+	Face,
+
+    /** Tracking of images supplied by the app. No world tracking, just images */
+    Image,
+
+	/** A session used to scan objects for object detection in a world tracking session */
+	ObjectScanning,
+	
+	/** A session used to track human pose in 3D */
+	PoseTracking,
+	
+	/** A session used to track geographic locations */
+	GeoTracking,
+};
+
+UENUM(BlueprintType, Category = "AR AugmentedReality", meta = (Experimental, Bitflags))
+enum class EARPlaneDetectionMode : uint8
+{
+	None = 0,
+	
+	/* Detect Horizontal Surfaces */
+	HorizontalPlaneDetection = 1,
+
+	/* Detects Vertical Surfaces */
+	VerticalPlaneDetection = 2
+};
+ENUM_CLASS_FLAGS(EARPlaneDetectionMode);
+
+UENUM(BlueprintType, Category = "AR AugmentedReality", meta = (Experimental))
+enum class EARLightEstimationMode : uint8
+{
+	/** Light estimation disabled. */
+	None = 0,
+	/** Enable light estimation for ambient intensity; returned as a UARBasicLightEstimate */
+	AmbientLightEstimate = 1,
+	/**
+	* Enable directional light estimation of environment with an additional key light.
+	* Currently not supported.
+	*/
+	DirectionalLightEstimate = 2
+};
+
+UENUM(BlueprintType, Category = "AR AugmentedReality", meta = (Experimental))
+enum class EARFrameSyncMode : uint8
+{
+	/** Unreal tick will be synced with the camera image update rate. */
+	SyncTickWithCameraImage = 0,
+	/** Unreal tick will not related to the camera image update rate. */
+	SyncTickWithoutCameraImage = 1,
+};
+
+/**
+ * Tells the AR system what type of environmental texture capturing to perform
+ */
+UENUM(BlueprintType)
+enum class EAREnvironmentCaptureProbeType : uint8
+{
+	/** No capturing will happen */
+	None,
+	/** Capturing will be manual with the app specifying where the probes are and their size */
+	Manual,
+	/** Capturing will be automatic with probes placed by the AR system */
+	Automatic
+};
+
+/**
+ * Tells the AR system how much of the face work to perform
+ */
+UENUM(BlueprintType)
+enum class EARFaceTrackingUpdate : uint8
+{
+	/** Curves and geometry will be updated (only needed for mesh visualization) */
+	CurvesAndGeo,
+	/** Only the curve data is updated */
+	CurvesOnly
+};
+
+/**
+ * Additional tracking features to be enabled if the device supports it
+ */
+UENUM(BlueprintType)
+enum class EARSessionTrackingFeature : uint8
+{
+	/** None of the session feature is enabled */
+	None,
+	
+	/** 2D pose detection is enabled */
+	PoseDetection2D,
+	
+	/** Person segmentation is enabled */
+	PersonSegmentation,
+	
+	/** Person segmentation with depth info is enabled */
+	PersonSegmentationWithDepth,
+	
+	/** Accessing scene depth info is enabled */
+	SceneDepth,
+	
+	/** Accessing smoothed scene depth info is enabled */
+	SmoothedSceneDepth,
+};
+
+/**
+ * Possible scene reconstruction methods
+ */
+UENUM(BlueprintType)
+enum class EARSceneReconstruction : uint8
+{
+	/** Scene reconstruction is disabled */
+	None,
+	
+	/** A mesh approximation of the environment is constructed */
+	MeshOnly,
+	
+	/** A mesh approximation of the environment, including classification of the objects is constructed */
+	MeshWithClassification,
+};
+
+UCLASS(BlueprintType, Category="AR Settings")
+class AUGMENTEDREALITY_API UARSessionConfig : public UDataAsset
+{
+	GENERATED_BODY()
+
+public:
+
+	UARSessionConfig();
+	
+public:
+	/** @see EARWorldAlignment */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARWorldAlignment GetWorldAlignment() const;
+
+	/** @see SessionType */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARSessionType GetSessionType() const;
+
+	/** @see PlaneDetectionMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARPlaneDetectionMode GetPlaneDetectionMode() const;
+
+	/** @see LightEstimationMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARLightEstimationMode GetLightEstimationMode() const;
+
+	/** @see FrameSyncMode */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARFrameSyncMode GetFrameSyncMode() const;
+
+	/** @see bEnableAutomaticCameraOverlay */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldRenderCameraOverlay() const;
+
+	/** @see bEnableAutomaticCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldEnableCameraTracking() const;
+
+	/** @see bEnableAutoFocus */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldEnableAutoFocus() const;
+
+	/** @see bEnableAutoFocus */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetEnableAutoFocus(bool bNewValue);
+
+	/** @see bResetCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldResetCameraTracking() const;
+	
+	/** @see bResetCameraTracking */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetResetCameraTracking(bool bNewValue);
+
+	/** @see bResetTrackedObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	bool ShouldResetTrackedObjects() const;
+
+	/** @see bResetTrackedObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetResetTrackedObjects(bool bNewValue);
+	
+	/** @see CandidateImages */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	const TArray<UARCandidateImage*>& GetCandidateImageList() const;
+
+	// Add a new CandidateImage to the ARSessionConfig.
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void AddCandidateImage(UARCandidateImage* NewCandidateImage);
+    
+	/** @see MaxNumSimultaneousImagesTracked */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+    int32 GetMaxNumSimultaneousImagesTracked() const;
+	
+	/** @see EnvironmentCaptureProbeType */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EAREnvironmentCaptureProbeType GetEnvironmentCaptureProbeType() const;
+	
+	/** @see WorldMapData */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	const TArray<uint8>& GetWorldMapData() const;
+	/** @see WorldMapData */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetWorldMapData(TArray<uint8> WorldMapData);
+
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	const TArray<UARCandidateObject*>& GetCandidateObjectList() const;
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetCandidateObjectList(const TArray<UARCandidateObject*>& InCandidateObjects);
+	/** @see CandidateObjects */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void AddCandidateObject(UARCandidateObject* CandidateObject);
+
+	/** @see DesiredVideoFormat */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	FARVideoFormat GetDesiredVideoFormat() const;
+	/** @see DesiredVideoFormat */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetDesiredVideoFormat(FARVideoFormat NewFormat);
+
+	/** @see FaceTrackingDirection */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARFaceTrackingDirection GetFaceTrackingDirection() const;
+	/** @see FaceTrackingDirection */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetFaceTrackingDirection(EARFaceTrackingDirection InDirection);
+	
+	/** @see FaceTrackingUpdate */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARFaceTrackingUpdate GetFaceTrackingUpdate() const;
+	/** @see FaceTrackingUpdate */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetFaceTrackingUpdate(EARFaceTrackingUpdate InUpdate);
+
+	/** @see EnabledSessionTrackingFeatures */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARSessionTrackingFeature GetEnabledSessionTrackingFeature() const;
+	
+	/** @see SceneReconstructionMethod */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	EARSceneReconstruction GetSceneReconstructionMethod() const;
+	
+	/** @see EnabledSessionTrackingFeatures */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetSessionTrackingFeatureToEnable(EARSessionTrackingFeature InSessionTrackingFeature);
+	
+	/** @see SceneReconstructionMethod */
+	UFUNCTION(BlueprintCallable, Category = "AR Settings")
+	void SetSceneReconstructionMethod(EARSceneReconstruction InSceneReconstructionMethod);
+
+	bool ShouldDoHorizontalPlaneDetection() const { return bHorizontalPlaneDetection; }
+	bool ShouldDoVerticalPlaneDetection() const { return bVerticalPlaneDetection; }
+	
+	const TArray<uint8>& GetSerializedARCandidateImageDatabase() const;
+
+	UClass* GetPlaneComponentClass(void) const;
+	UClass* GetPointComponentClass(void) const;
+	UClass* GetFaceComponentClass(void) const;
+	UClass* GetImageComponentClass(void) const;
+	UClass* GetQRCodeComponentClass(void) const;
+	UClass* GetPoseComponentClass(void) const;
+	UClass* GetEnvironmentProbeComponentClass(void) const;
+	UClass* GetObjectComponentClass(void) const;
+	UClass* GetMeshComponentClass(void) const;
+	UClass* GetGeoAnchorComponentClass(void) const;
+	
+	UMaterialInterface* GetDefaultMeshMaterial() const { return DefaultMeshMaterial; }
+	UMaterialInterface* GetDefaultWireframeMeshMaterial() const { return DefaultWireframeMeshMaterial; }
+	
+	int32 GetMaxNumberOfTrackedFaces() const { return MaxNumberOfTrackedFaces; }
+	
+	/** Whether the AR system should generate mesh data that can be rendered, collided against, nav mesh generated on, etc. */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | World Mapping")
+	bool bGenerateMeshDataFromTrackedGeometry;
+
+	/** Whether the AR system should generate collision data from the mesh data or not */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | World Mapping")
+	bool bGenerateCollisionForMeshData;
+
+	/** Whether the AR system should generate navigation mesh data from the mesh data or not */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | World Mapping")
+	bool bGenerateNavMeshForMeshData;
+
+	/** Whether the AR system render the mesh data as occlusion meshes or not */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | World Mapping")
+	bool bUseMeshDataForOcclusion;
+
+	/** Whether the AR system should render the mesh data in wireframe or not */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | World Mapping")
+	bool bRenderMeshDataInWireframe;
+
+	/** Whether the AR system should report scene objects (@see EARObjectClassification::SceneObject) */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | World Mapping")
+	bool bTrackSceneObjects;
+	
+	/** Whether to occlude the virtual content with the result from person segmentation */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | Occlusion")
+	bool bUsePersonSegmentationForOcclusion = true;
+	
+	/** Whether to occlude the virtual content with the scene depth information */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | Occlusion")
+	bool bUseSceneDepthForOcclusion = false;
+	
+	/** Whether to automatically estimate and set the scale of a detected or tracked image. */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | Image Tracking")
+	bool bUseAutomaticImageScaleEstimation = true;
+	
+	/** Whether to use the standard onboarding UX, if the system supports it. */
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	bool bUseStandardOnboardingUX = false;
+	
+	/** @see bUseOptimalVideoFormat */
+	bool ShouldUseOptimalVideoFormat() const;
+
+private:
+	//~ UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	//~ UObject interface
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	/** @see EARWorldAlignment */
+	EARWorldAlignment WorldAlignment;
+
+	/** @see EARSessionType */
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	EARSessionType SessionType;
+
+	/** @see EARPlaneDetectionMode */
+	UPROPERTY()
+	EARPlaneDetectionMode PlaneDetectionMode_DEPRECATED;
+	
+	/** Should we detect flat horizontal surfaces: e.g. table tops, windows sills */
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	bool bHorizontalPlaneDetection;
+	
+	/** Should we detect flat vertical surfaces: e.g. paintings, monitors, book cases */
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	bool bVerticalPlaneDetection;
+
+	/** Whether the camera should use autofocus or not (can cause subtle shifts in position for small objects at macro camera distance) */
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	bool bEnableAutoFocus;
+
+	/** @see EARLightEstimationMode */
+	UPROPERTY(EditAnywhere, Category = "AR Settings")
+	EARLightEstimationMode LightEstimationMode;
+
+	/** @see EARFrameSyncMode */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = "AR Settings")
+	EARFrameSyncMode FrameSyncMode;
+
+	/** Whether the AR camera feed should be drawn as an overlay or not. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bEnableAutomaticCameraOverlay;
+
+	/** Whether the game camera should track the device movement or not. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bEnableAutomaticCameraTracking;
+
+	/** Whether the AR system should reset camera tracking (origin, transform) or not. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bResetCameraTracking;
+	
+	/** Whether the AR system should remove any tracked objects or not. Defaults to true. */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bResetTrackedObjects;
+	
+	/** The list of candidate images to detect within the AR camera view */
+	UPROPERTY(EditAnywhere, Category="AR Settings | Image Tracking")
+	TArray<UARCandidateImage*> CandidateImages;
+
+    /** The maximum number of images to track at the same time. Defaults to 1 */
+    UPROPERTY(EditAnywhere, Category="AR Settings | Image Tracking")
+    int32 MaxNumSimultaneousImagesTracked;
+	
+	/** How the AR system should handle texture probe capturing */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	EAREnvironmentCaptureProbeType EnvironmentCaptureProbeType;
+
+	/** A previously saved world that is to be loaded when the session starts */
+	UPROPERTY(VisibleAnywhere, Category="AR Settings | World Mapping")
+	TArray<uint8> WorldMapData;
+
+	/** A list of candidate objects to search for in the scene */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	TArray<UARCandidateObject*> CandidateObjects;
+
+	/**
+	 * The desired video format (or the default if not supported) that this session should use if the camera is enabled
+	 * Note: Call GetSupportedVideoFormats to get a list of device supported formats
+	 */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	FARVideoFormat DesiredVideoFormat;
+	
+	/** Whether to automatically pick the video format that best matches the device screen size */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	bool bUseOptimalVideoFormat = true;
+	
+	/** Whether to track the face as if you are looking out of the device or as a mirror */
+	UPROPERTY(EditAnywhere, Category="Face AR Settings")
+	EARFaceTrackingDirection FaceTrackingDirection;
+
+	/** Whether to track the face as if you are looking out of the device or as a mirror */
+	UPROPERTY(EditAnywhere, Category="Face AR Settings")
+	EARFaceTrackingUpdate FaceTrackingUpdate;
+	
+	/** The maximum number of faces to track simultaneously. */
+	UPROPERTY(EditAnywhere, Category="Face AR Settings")
+	int32 MaxNumberOfTrackedFaces = 1;
+	
+	/** Data array for storing the cooked image database */
+	UPROPERTY()
+	TArray<uint8> SerializedARCandidateImageDatabase;
+	
+	/** A list of session features  to enable */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	EARSessionTrackingFeature EnabledSessionTrackingFeature = EARSessionTrackingFeature::None;
+	
+	/** Which scene reconstruction method to use */
+	UPROPERTY(EditAnywhere, Category="AR Settings")
+	EARSceneReconstruction SceneReconstructionMethod = EARSceneReconstruction::None;
+
+	/** Class binding for to facilitate networking */
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARPlaneComponent> PlaneComponentClass;
+
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARPointComponent> PointComponentClass;
+
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARFaceComponent> FaceComponentClass;
+
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARImageComponent> ImageComponentClass;
+
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARQRCodeComponent> QRCodeComponentClass;
+
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARPoseComponent> PoseComponentClass;
+
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UAREnvironmentProbeComponent> EnvironmentProbeComponentClass;
+
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARObjectComponent> ObjectComponentClass;
+
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARMeshComponent> MeshComponentClass;
+	
+	UPROPERTY(EditAnywhere, Category = "AR Gameplay")
+	TSubclassOf<UARGeoAnchorComponent> GeoAnchorComponentClass;
+	
+	/** The default mesh material used by the generated mesh component */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | World Mapping")
+	UMaterialInterface* DefaultMeshMaterial;
+
+	/** The default mesh material used by the wireframe setting of the generated mesh component.  Note: It is reccomended to ignore this 'wireframe' feature and use a wirefraem material in the DefaultMeshMaterial if you want wireframe. */
+	UPROPERTY(EditAnywhere, Category = "AR Settings | World Mapping")
+	UMaterialInterface* DefaultWireframeMeshMaterial;
+};

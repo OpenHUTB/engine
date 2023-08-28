@@ -1,0 +1,14 @@
+﻿INTSourceChangelist:3735956
+Availability:NoPublish
+Title:HLOD システム
+Crumbs:
+
+[EXCERPT:main]
+###Hierarchical Level of Detail （HLOD）
+Hierarchical Level of Detail (HLOD) は、アンリアル エンジン 4.11 以降を使うプロジェクトのパフォーマンスを高め、クオリティを高く保つために開発されました。 
+
+HLOD は表示距離が遠い複数の Static Mesh アクタをまとめてひとつの Static Mesh アクタに置き換えることができます。HLOD を使うと、シーンに対してレンダリングする必要があるアクタ数を減らし、1 フレームあたりのドローコール数を少なくしてパフォーマンスを高めることができます。 
+[VAR:ToolTipFullLink]
+Engine/HLOD
+[/VAR]
+[/EXCERPT:main]

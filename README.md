@@ -1,7 +1,5 @@
-Unreal Engine
+包含 CARLA 补丁的虚幻引擎
 =============
-
-Welcome to the Unreal Engine source code! 
 
 From this repository you can build the Unreal Editor for Windows, Mac and Linux, compile Unreal Engine games for Android, iOS, PlayStation 4, Xbox One and HTML5,
 and build tools like Unreal Lightmass and Unreal Frontend. Modify them in any way you can imagine, and share your changes with others! 

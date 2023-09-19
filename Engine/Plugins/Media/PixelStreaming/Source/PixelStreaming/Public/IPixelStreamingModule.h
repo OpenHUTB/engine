@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Interface Pixel Streaming Module
 
 #pragma once
 
@@ -13,17 +13,17 @@ class IMediaPlayer;
 class IMediaEventSink;
 
 /**
-* The public interface to this module
+* 该模块的公开接口
 */
 class IPixelStreamingModule : public IInputDeviceModule
 {
 public:
 
 	/**
-	* Singleton-like access to this module's interface.  This is just for convenience!
-	* Beware of calling this during the shutdown phase, though.  Your module might have been unloaded already.
+	* 对该模块的接口进行类似于单例的访问。这只是为了方便！
+	* 不过，请注意在关闭阶段调用此命令。您的模块可能已经卸载。
 	*
-	* @return Returns singleton instance, loading the module on demand if needed
+	* @return 返回单例，根据需要加载模块
 	*/
 	static inline IPixelStreamingModule& Get()
 	{
@@ -31,9 +31,9 @@ public:
 	}
 
 	/**
-	* Checks to see if this module is loaded and ready.  It is only valid to call Get() if IsAvailable() returns true.
+	* 检查此模块是否已加载并准备就绪。只有当 IsAvailable() 返回 true 时，调用 Get() 才有效。
 	*
-	* @return True if the module is loaded and ready to use
+	* @return True 如果模块已加载并准备使用
 	*/
 	static inline bool IsAvailable()
 	{
@@ -41,46 +41,41 @@ public:
 	}
 
 	/**
-	 * Returns a reference to the input device. The lifetime of this reference
-	 * is that of the underlying shared pointer.
-	 * @return A reference to the input device.
+	 * 返回对输入设备的引用。此引用的生存期是基础共享指针的生存期。
+	 * @return 对输入设备的引用
 	 */
 	virtual class FInputDevice& GetInputDevice() = 0;
 	
 	/**
-	 * Add any player config JSON to the given object which relates to
-	 * configuring the input system for the pixel streaming on the browser.
-	 * @param JsonObject - The JSON object to add fields to.
+	 * 将任何播放器配置JSON添加到给定对象中，该对象与为浏览器上的像素流配置输入系统有关。
+	 * @param JsonObject - 要向其中添加字段的JSON对象。
 	 */
 	virtual void AddPlayerConfig(TSharedRef<class FJsonObject>& JsonObject) = 0;
 
 	/**
-	 * Send a data response back to the browser where we are sending video. This
-	 * could be used as a response to a UI interaction, for example.
-	 * @param Descriptor - A generic descriptor string.
+	 * 将数据响应发送回我们发送视频的浏览器。例如，这可以用作对UI交互的响应。
+	 * @param Descriptor - 通用描述符字符串。
 	 */
 	virtual void SendResponse(const FString& Descriptor) = 0;
 
 	/**
-	 * Send a data command back to the browser where we are sending video. This
-	 * is different to a response as a command is low-level and coming from UE4
-	 * rather than the pixel streamed application.
-	 * @param Descriptor - A generic descriptor string.
+	 * 将数据命令发送回我们发送视频的浏览器。这与响应不同，因为命令是低级别的并且来自UE4而不是像素流应用。
+	 * @param Descriptor - 通用描述符字符串。
 	 */
 	virtual void SendCommand(const FString& Descriptor) = 0;
 
 	/**
-	 * Freeze Pixel Streaming.
-	 * @param Texture - The freeze frame to display. If null then the back buffer is captured.
+	 * 冻结像素流。
+	 * @param Texture - 要显示的冻结帧。如果为null，则捕获后台缓冲区。
 	 */
 	virtual void FreezeFrame(UTexture2D* Texture) = 0;
 
 	/**
-	 * Unfreeze Pixel Streaming.
+	 * 解冻像素流。
 	 */
 	virtual void UnfreezeFrame() = 0;
 
-	// Player
+	// 播放器
 
 	virtual bool IsPlayerInitialized() const = 0;
 

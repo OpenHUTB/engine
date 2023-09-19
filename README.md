@@ -1,8 +1,8 @@
 包含 CARLA 补丁的虚幻引擎
 =============
 
-## 构建步骤I
-1. 在终端中，导航到要保存虚幻引擎的位置并克隆 carla 分支：
+## 构建步骤
+1. 在终端中，导航到要保存虚幻引擎的位置并克隆虚幻引擎仓库：
 ```shell
 git clone https://github.com/OpenHUTB/unreal.git
 ```
@@ -15,9 +15,9 @@ GenerateProjectFiles.bat
 ```
     
 3. 编译修改后的引擎：
-使用 Visual Studio 2019 打开源文件夹内的文件 UE4.sln。
-在构建栏中，确保已选择“Development Editor”、“Win64”和“UnrealBuildTool”选项。如果需要任何帮助，请查看本指南。
-在解决方案资源管理器中，右键单击 UE4 并选择“生成”（Build）。
+使用 Visual Studio 2019 打开源文件夹内的文件 `UE4.sln`。
+在构建栏中，确保已选择`Development Editor`、`Win64`和`UnrealBuildTool`选项。如果需要任何帮助，请查看本指南。
+在解决方案资源管理器中，右键单击 `UE4` 并选择`生成`（`Build`）。
 
 
 4.编译解决方案后，可以打开引擎，通过启动可执行文件 `Engine\Binaries\Win64\UE4Editor.exe` 来检查所有内容是否已正确安装。
@@ -25,6 +25,25 @@ GenerateProjectFiles.bat
 笔记：如果安装成功，虚幻引擎的版本选择器应该能够识别。可以通过右键单击任何 `.uproject` 文件并选择 `Switch Unreal Engine version` 来检查这一点。应该会看到一个弹出窗口，显示`Source Build at PATH`，这里 PATH 是选择的安装路径。如果您在右键单击文件 `.uproject` 时看不到此选择器 `Generate Visual Studio project files`，则虚幻引擎安装出现问题，可能需要重新正确安装。
 
 重要：到目前为止发生了很多事情。强烈建议在继续之前重新启动计算机。
+
+5. （可选）运行编辑器
+
+将启动项目设置为 UE4。
+
+<img src=https://docs.unrealengine.com/4.26/Images/ProductionPipelines/DevelopmentSetup/BuildingUnrealEngine/SetUE4_StartPrj.webp alt="编辑页面" width="480" />
+
+
+右键单击 UE4 项目，将鼠标悬停于"Debug" 上，然后 单击"启动新实例（Start New Instance）" 以启动编辑器（或者，你可以按键盘上的 F5键 来启动编辑器的新实例）。
+
+<img src=https://docs.unrealengine.com/4.26/Images/ProductionPipelines/DevelopmentSetup/BuildingUnrealEngine/RunCompiledWindowsEditor.webp width="480" />
+
+
+
+## 内容
+虚幻引擎源码的构成。
+
+### 像素流插件
+相关源码位于：`unreal\Engine\Plugins\Media\PixelStreaming\PixelStreaming.uplugin`
 
 
 ## 官方指南
@@ -157,3 +176,12 @@ The engine is optimizing content for your platform to the _derived data cache_, 
 Your private forks of the Unreal Engine code are associated with your GitHub account permissions.
 If you unsubscribe or switch GitHub user names, you'll need to re-fork and upload your changes from a local copy. 
 
+
+## 参考链接
+[UE4初学者系列教程合集-全中文新手入门教程](https://www.bilibili.com/video/BV164411Y732/?share_source=copy_web&vd_source=d956d8d73965ffb619958f94872d7c57  )
+
+[ue4官方文档](https://docs.unrealengine.com/4.26/zh-CN/)
+
+[官方讨论社区](https://forums.unrealengine.com/categories?tag=unreal-engine)
+
+[知乎的虚幻引擎社区](https://zhuanlan.zhihu.com/egc-community)

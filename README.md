@@ -1,6 +1,33 @@
 包含 CARLA 补丁的虚幻引擎
 =============
 
+## 构建步骤I
+1. 在终端中，导航到要保存虚幻引擎的位置并克隆 carla 分支：
+```shell
+git clone https://github.com/OpenHUTB/unreal.git
+```
+注意：尽可能使虚幻引擎文件夹靠近 C:\\，因为如果路径超过一定长度，则会在步骤 3 中的 Setup.bat 返回错误。
+
+2. 运行配置脚本：
+```shell
+Setup.bat
+GenerateProjectFiles.bat
+```
+    
+3. 编译修改后的引擎：
+使用 Visual Studio 2019 打开源文件夹内的文件 UE4.sln。
+在构建栏中，确保已选择“Development Editor”、“Win64”和“UnrealBuildTool”选项。如果需要任何帮助，请查看本指南。
+在解决方案资源管理器中，右键单击 UE4 并选择“生成”（Build）。
+
+
+4.编译解决方案后，可以打开引擎，通过启动可执行文件 `Engine\Binaries\Win64\UE4Editor.exe` 来检查所有内容是否已正确安装。
+
+笔记：如果安装成功，虚幻引擎的版本选择器应该能够识别。可以通过右键单击任何 `.uproject` 文件并选择 `Switch Unreal Engine version` 来检查这一点。应该会看到一个弹出窗口，显示`Source Build at PATH`，这里 PATH 是选择的安装路径。如果您在右键单击文件 `.uproject` 时看不到此选择器 `Generate Visual Studio project files`，则虚幻引擎安装出现问题，可能需要重新正确安装。
+
+重要：到目前为止发生了很多事情。强烈建议在继续之前重新启动计算机。
+
+
+## 官方指南
 From this repository you can build the Unreal Editor for Windows, Mac and Linux, compile Unreal Engine games for Android, iOS, PlayStation 4, Xbox One and HTML5,
 and build tools like Unreal Lightmass and Unreal Frontend. Modify them in any way you can imagine, and share your changes with others! 
 
@@ -14,7 +41,7 @@ If you need more, just ask! A lot of Epic developers hang out on the [forums](ht
 and we're proud to be part of a well-meaning, friendly and welcoming community of thousands. 
 
 
-Branches
+分支
 --------
 
 We publish source for the engine in several branches:
@@ -29,7 +56,7 @@ Individual teams have their own **development branches** for day to day work ([d
 Other short-lived branches may pop-up from time to time as we stabilize new releases or hotfixes.
 
 
-Getting up and running
+开始并运行
 ----------------------
 
 The steps below will take you through cloning your own private fork, then compiling and running the editor yourself:
@@ -113,7 +140,7 @@ The steps below will take you through cloning your own private fork, then compil
 **PlayStation 4** or **Xbox One** development require additional files that can only be provided after your registered developer status is confirmed by Sony or Microsoft. See [the announcement blog post](https://www.unrealengine.com/blog/playstation-4-and-xbox-one-now-supported) for more information.
 
 
-Licensing and Contributions
+许可和贡献
 ---------------------------
 
 Your access to and use of Unreal Engine on GitHub is governed by the [Unreal Engine End User License Agreement](https://www.unrealengine.com/eula). If you don't agree to those terms, as amended from time to time, you are not permitted to access or use Unreal Engine.
@@ -121,7 +148,7 @@ Your access to and use of Unreal Engine on GitHub is governed by the [Unreal Eng
 We welcome any contributions to Unreal Engine development through [pull requests](https://github.com/EpicGames/UnrealEngine/pulls/) on GitHub. Most of our active development is in the **master** branch, so we prefer to take pull requests there (particularly for new features). We try to make sure that all new code adheres to the [Epic coding standards](https://docs.unrealengine.com/latest/INT/Programming/Development/CodingStandard/).  All contributions are governed by the terms of the EULA.
 
 
-Additional Notes
+额外的笔记
 ----------------
 
 The first time you start the editor from a fresh source build, you may experience long load times. 

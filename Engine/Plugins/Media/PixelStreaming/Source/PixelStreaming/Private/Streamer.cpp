@@ -1,4 +1,7 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// 使用WebRTC实现像素流推送
+// WebRTC (Web Real-Time Communications) 是一项实时通讯技术，它允许网络应用或者站点，
+// 在不借助中间媒介的情况下，建立浏览器之间点对点（Peer-to-Peer）的连接，
+// 实现视频流和（或）音频流或者其他任意数据的传输。
 
 #include "Streamer.h"
 #include "AudioCapturer.h"

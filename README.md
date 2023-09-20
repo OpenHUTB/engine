@@ -42,6 +42,9 @@ GenerateProjectFiles.bat
 ## 内容
 虚幻引擎源码的构成。
 
+### 编译
+[编译配置参考](https://docs.unrealengine.com/4.26/zh-CN/ProductionPipelines/DevelopmentSetup/BuildConfigurations/)
+
 ### 像素流插件
 相关源码位于：`unreal\Engine\Plugins\Media\PixelStreaming\PixelStreaming.uplugin`
 

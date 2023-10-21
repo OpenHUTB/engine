@@ -63,8 +63,8 @@ If you need more, just ask! A lot of Epic developers hang out on the [forums](ht
 and we're proud to be part of a well-meaning, friendly and welcoming community of thousands. 
 
 
-分支
---------
+## 分支
+
 
 We publish source for the engine in several branches:
 
@@ -78,8 +78,7 @@ Individual teams have their own **development branches** for day to day work ([d
 Other short-lived branches may pop-up from time to time as we stabilize new releases or hotfixes.
 
 
-开始并运行
-----------------------
+## 开始并运行
 
 The steps below will take you through cloning your own private fork, then compiling and running the editor yourself:
 
@@ -151,7 +150,7 @@ The steps below will take you through cloning your own private fork, then compil
 
 
 
-### Additional target platforms
+### 额外的目标平台
 
 **Android** support will be downloaded by the setup script if you have the Android NDK installed. See the [Android getting started guide](https://docs.unrealengine.com/latest/INT/Platforms/Android/GettingStarted/).
 
@@ -162,22 +161,19 @@ The steps below will take you through cloning your own private fork, then compil
 **PlayStation 4** or **Xbox One** development require additional files that can only be provided after your registered developer status is confirmed by Sony or Microsoft. See [the announcement blog post](https://www.unrealengine.com/blog/playstation-4-and-xbox-one-now-supported) for more information.
 
 
-许可和贡献
----------------------------
-
-Your access to and use of Unreal Engine on GitHub is governed by the [Unreal Engine End User License Agreement](https://www.unrealengine.com/eula). If you don't agree to those terms, as amended from time to time, you are not permitted to access or use Unreal Engine.
-
-We welcome any contributions to Unreal Engine development through [pull requests](https://github.com/EpicGames/UnrealEngine/pulls/) on GitHub. Most of our active development is in the **master** branch, so we prefer to take pull requests there (particularly for new features). We try to make sure that all new code adheres to the [Epic coding standards](https://docs.unrealengine.com/latest/INT/Programming/Development/CodingStandard/).  All contributions are governed by the terms of the EULA.
-
-
-额外的笔记
-----------------
+## 额外的笔记
 
 The first time you start the editor from a fresh source build, you may experience long load times. 
 The engine is optimizing content for your platform to the _derived data cache_, and it should only happen once.
 
 Your private forks of the Unreal Engine code are associated with your GitHub account permissions.
 If you unsubscribe or switch GitHub user names, you'll need to re-fork and upload your changes from a local copy. 
+
+## 问题
+* 右键`.uproject`文件没有`Switch Unreal Engine version...`
+解决：双击`Engine\Binaries\Win64\UnrealVersionSelector-Win64-Shipping.exe`，出现`Register this directory as an Unreal Engine installation?`后点击`是(Y)`。
+
+* 增加`matlab`插件进行虚幻引擎编译，导致启动虚幻编辑器启动失败，原因不明。
 
 
 ## 参考链接

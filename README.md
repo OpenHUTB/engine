@@ -38,6 +38,16 @@ GenerateProjectFiles.bat
 <img src=https://docs.unrealengine.com/4.26/Images/ProductionPipelines/DevelopmentSetup/BuildingUnrealEngine/RunCompiledWindowsEditor.webp width="480" />
 
 
+## 发布安装版本
+参考[链接](https://github.com/chiefGui/ue-from-source?tab=readme-ov-file#step-by-step-1) 进行虚幻引擎的发布。
+
+1. 使用 Visual Studio 打开 `UE4.shn` 。
+2. 在右侧边栏，您应该会看到一个`Solution Explorer`面板。展开`Programs`文件夹并找到`AutomationTool`项目：
+![Image](Engine/Documentation/fig/AutomationTool.png)
+3. 右键单击它并选择`生成(Build)`，应该很快。
+
+### 安装构建脚本
+
 
 ## 内容
 虚幻引擎源码的构成。

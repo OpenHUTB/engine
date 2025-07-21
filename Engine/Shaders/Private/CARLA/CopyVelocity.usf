@@ -1,0 +1,15 @@
+#include "../Common.ush"
+
+Texture2D SceneVelocity;
+SamplerState SceneVelocitySampler;
+float2 TextureExtent;
+
+void Main(
+	float4 SvPosition : SV_POSITION,
+	out float4 OutColor : SV_Target0)
+{
+	float2 UV = SvPosition.xy / TextureExtent.xy;
+	float4 EncodedVelocity = Texture2DSampleLevel(SceneVelocity, SceneVelocitySampler, UV, 1);
+	float3 DecodedVelocity = DecodeVelocityFromTexture(EncodedVelocity);
+	OutColor = float4(DecodedVelocity, 0);
+}

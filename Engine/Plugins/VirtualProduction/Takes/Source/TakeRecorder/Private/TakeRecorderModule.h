@@ -1,0 +1,87 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "Templates/SharedPointer.h"
+#include "Delegates/IDelegateInstance.h"
+#include "UObject/GCObject.h"
+#include "ITakeRecorderModule.h"
+
+
+class FExtender;
+class FTakePresetActions;
+class UTakePreset;
+class FSerializedRecorder;
+class UTakeRecorderSources;
+class USequencerSettings;
+
+class FTakeRecorderModule : public ITakeRecorderModule, public FGCObject
+{
+public:
+	FTakeRecorderModule();
+
+	void PopulateSourcesMenu(TSharedRef<FExtender> InExtender, UTakeRecorderSources* InSources);
+	virtual UTakePreset* GetPendingTake() const override;
+
+	//~ ITakeRecorderModule API
+	virtual FOnGenerateToolbarExtensions& GetToolbarExtensionGenerators() override { return ToolbarExtensionGenerators; }
+
+private:
+
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+
+	virtual FDelegateHandle RegisterSourcesMenuExtension(const FOnExtendSourcesMenu& InExtension) override;
+	virtual void UnregisterSourcesMenuExtension(FDelegateHandle Handle) override;
+	virtual void RegisterSettingsObject(UObject* InSettingsObject) override;
+
+	/** FGCObject interface */
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	virtual FString GetReferencerName() const override
+	{
+		return "FTakeRecorderModule";
+	}
+
+private:
+
+	void RegisterDetailCustomizations();
+
+	void UnregisterDetailCustomizations();
+
+	void RegisterLevelEditorExtensions();
+
+	void UnregisterLevelEditorExtensions();
+
+	void RegisterAssetTools();
+
+	void UnregisterAssetTools();
+
+	void RegisterSettings();
+
+	void UnregisterSettings();
+
+	void RegisterSerializedRecorder();
+
+	void UnregisterSerializedRecorder();
+
+	void RegisterMenus();
+
+private:
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnExtendSourcesMenuEvent, TSharedRef<FExtender>, UTakeRecorderSources*);
+
+	FOnExtendSourcesMenuEvent SourcesMenuExtenderEvent;
+	FOnGenerateToolbarExtensions ToolbarExtensionGenerators;
+
+	FDelegateHandle LevelEditorLayoutExtensionHandle;
+	FDelegateHandle LevelEditorTabManagerChangedHandle;
+	FDelegateHandle ModulesChangedHandle;
+
+	/** Cached name of the project settings fo de-registration of details customizations on shutdown (after UObject destruction) */
+	FName ProjectSettingsName;
+
+	TSharedPtr<FTakePresetActions> TakePresetActions;
+	TSharedPtr<FSerializedRecorder> SerializedRecorder;
+
+	USequencerSettings* SequencerSettings;
+};

@@ -1,0 +1,655 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	TextureRenderTarget2D.cpp: UTextureRenderTarget2D implementation
+=============================================================================*/
+
+#include "Engine/TextureRenderTarget2D.h"
+#include "Misc/MessageDialog.h"
+#include "TextureResource.h"
+#include "Engine/Texture2D.h"
+#include "UnrealEngine.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
+#include "UObject/RenderingObjectVersion.h"
+#include "GenerateMips.h"
+#include "RenderGraphUtils.h"
+
+int32 GTextureRenderTarget2DMaxSizeX = 999999999;
+int32 GTextureRenderTarget2DMaxSizeY = 999999999;
+
+/*-----------------------------------------------------------------------------
+	UTextureRenderTarget2D
+-----------------------------------------------------------------------------*/
+
+UTextureRenderTarget2D::UTextureRenderTarget2D(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	SizeX = 1;
+	SizeY = 1;
+	bHDR_DEPRECATED = true;
+	RenderTargetFormat = RTF_RGBA16f;
+	bAutoGenerateMips = false;
+	NumMips = 0;
+	ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	OverrideFormat = PF_Unknown;
+	bForceLinearGamma = true;
+	MipsSamplerFilter = Filter;
+	MipsAddressU = TA_Clamp;
+	MipsAddressV = TA_Clamp;
+}
+
+FTextureResource* UTextureRenderTarget2D::CreateResource()
+{
+	UWorld* World = GetWorld();
+
+	if (bAutoGenerateMips)
+	{
+		NumMips = FGenericPlatformMath::CeilToInt(FGenericPlatformMath::Log2(FGenericPlatformMath::Max(SizeX, SizeY)));
+
+		if (RHIRequiresComputeGenerateMips())
+		{
+			bCanCreateUAV = 1;
+		}
+	}
+	else
+	{
+		NumMips = 1;
+	}
+ 
+	FTextureRenderTarget2DResource* Result = new FTextureRenderTarget2DResource(this);
+	return Result;
+}
+
+EMaterialValueType UTextureRenderTarget2D::GetMaterialType() const
+{
+	return MCT_Texture2D;
+}
+
+void UTextureRenderTarget2D::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
+{
+	Super::GetResourceSizeEx(CumulativeResourceSize);
+
+	// Calculate size based on format.
+	EPixelFormat Format = GetFormat();
+	int32 BlockSizeX	= GPixelFormats[Format].BlockSizeX;
+	int32 BlockSizeY	= GPixelFormats[Format].BlockSizeY;
+	int32 BlockBytes	= GPixelFormats[Format].BlockBytes;
+	int32 NumBlocksX	= (SizeX + BlockSizeX - 1) / BlockSizeX;
+	int32 NumBlocksY	= (SizeY + BlockSizeY - 1) / BlockSizeY;
+	int32 NumBytes	= NumBlocksX * NumBlocksY * BlockBytes;
+
+	CumulativeResourceSize.AddUnknownMemoryBytes(NumBytes);
+}
+
+void UTextureRenderTarget2D::InitCustomFormat( uint32 InSizeX, uint32 InSizeY, EPixelFormat InOverrideFormat, bool bInForceLinearGamma )
+{
+	check(InSizeX > 0 && InSizeY > 0);
+	check(FTextureRenderTargetResource::IsSupportedFormat(InOverrideFormat));
+
+	// set required size/format
+	SizeX = InSizeX;
+	SizeY = InSizeY;
+	OverrideFormat = InOverrideFormat;
+	bForceLinearGamma = bInForceLinearGamma;
+
+	if (!ensureMsgf(SizeX >= 0 && SizeX <= 65536, TEXT("Invalid SizeX=%u for RenderTarget %s"), SizeX, *GetName()))
+	{
+		SizeX = 1;
+	}
+
+	if (!ensureMsgf(SizeY >= 0 && SizeY <= 65536, TEXT("Invalid SizeY=%u for RenderTarget %s"), SizeY, *GetName()))
+	{
+		SizeY = 1;
+	}
+
+	// Recreate the texture's resource.
+	UpdateResource();
+}
+
+void UTextureRenderTarget2D::InitAutoFormat(uint32 InSizeX, uint32 InSizeY)
+{
+	check(InSizeX > 0 && InSizeY > 0);
+
+	// set required size
+	SizeX = InSizeX;
+	SizeY = InSizeY;
+
+	// Recreate the texture's resource.
+	UpdateResource();
+}
+
+void UTextureRenderTarget2D::ResizeTarget(uint32 InSizeX, uint32 InSizeY)
+{
+	if (SizeX != InSizeX || SizeY != InSizeY)
+	{
+		SizeX = InSizeX;
+		SizeY = InSizeY;
+		if (bAutoGenerateMips)
+		{
+			NumMips = FGenericPlatformMath::CeilToInt(FGenericPlatformMath::Log2(FGenericPlatformMath::Max(SizeX, SizeY)));
+		}
+
+		if (Resource)
+		{
+			FTextureRenderTarget2DResource* InResource = static_cast<FTextureRenderTarget2DResource*>(Resource);
+			int32 NewSizeX = SizeX;
+			int32 NewSizeY = SizeY;
+			ENQUEUE_RENDER_COMMAND(ResizeRenderTarget)(
+				[InResource, NewSizeX, NewSizeY](FRHICommandListImmediate& RHICmdList)
+				{
+					InResource->Resize(NewSizeX, NewSizeY);
+					InResource->UpdateDeferredResource(RHICmdList, true);
+				}
+			);
+
+
+		}
+		else
+		{
+			UpdateResource();
+		}
+	}
+}
+
+void UTextureRenderTarget2D::UpdateResourceImmediate(bool bClearRenderTarget/*=true*/)
+{
+	if (Resource)
+	{
+		FTextureRenderTarget2DResource* InResource = static_cast<FTextureRenderTarget2DResource*>(Resource);
+		ENQUEUE_RENDER_COMMAND(UpdateResourceImmediate)(
+			[InResource, bClearRenderTarget](FRHICommandListImmediate& RHICmdList)
+			{
+				InResource->UpdateDeferredResource(RHICmdList, bClearRenderTarget);
+			}
+		);
+	}
+}
+
+#if WITH_EDITOR
+void UTextureRenderTarget2D::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	const FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+
+	EPixelFormat Format = GetFormat();
+
+	const int32 WarnSize = 2048; 
+
+	if (SizeX > WarnSize || SizeY > WarnSize)
+	{
+		const float MemoryMb = SizeX * SizeY * GPixelFormats[Format].BlockBytes / 1024.0f / 1024.0f;
+		FNumberFormattingOptions FloatFormat;
+		FloatFormat.SetMaximumFractionalDigits(1);
+		FText Message = FText::Format( NSLOCTEXT("TextureRenderTarget2D", "LargeTextureRenderTarget2DWarning", "A TextureRenderTarget2D of size {0}x{1} will use {2}Mb ({3}Mb if used with a Scene Capture), which may result in extremely poor performance or an Out Of Video Memory crash.\nAre you sure?"), FText::AsNumber(SizeX), FText::AsNumber(SizeY), FText::AsNumber(MemoryMb, &FloatFormat), FText::AsNumber(10.0f * MemoryMb, &FloatFormat));
+		const EAppReturnType::Type Choice = FMessageDialog::Open(EAppMsgType::YesNo, Message);
+	
+		if (Choice == EAppReturnType::No)
+		{
+			SizeX = FMath::Clamp<int32>(SizeX,1,WarnSize);
+			SizeY = FMath::Clamp<int32>(SizeY,1,WarnSize);
+		}
+	}
+
+	const int32 MaxSize = 8192; 
+	
+	SizeX = FMath::Clamp<int32>(SizeX - (SizeX % GPixelFormats[Format].BlockSizeX),1,MaxSize);
+	SizeY = FMath::Clamp<int32>(SizeY - (SizeY % GPixelFormats[Format].BlockSizeY),1,MaxSize);
+
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UTextureRenderTarget2D, RenderTargetFormat))
+	{
+		if (RenderTargetFormat == RTF_RGBA8_SRGB)
+		{
+			bForceLinearGamma = false;
+		}
+		else
+		{
+			bForceLinearGamma = true;
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+    // SRGB may have been changed by Super, reset it since we prefer to honor explicit user choice
+	SRGB = IsSRGB();
+}
+#endif // WITH_EDITOR
+
+void UTextureRenderTarget2D::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
+	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::AddedTextureRenderTargetFormats)
+	{
+		RenderTargetFormat = bHDR_DEPRECATED ? RTF_RGBA16f : RTF_RGBA8;
+	}
+
+	if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::ExplicitSRGBSetting)
+	{
+		float DisplayGamme = 2.2f;
+		EPixelFormat Format = GetFormat();
+
+		if (TargetGamma > KINDA_SMALL_NUMBER * 10.0f)
+		{
+			DisplayGamme = TargetGamma;
+		}
+		else if (Format == PF_FloatRGB || Format == PF_FloatRGBA || bForceLinearGamma)
+		{
+			DisplayGamme = 1.0f;
+		}
+
+		// This is odd behavior to apply the sRGB gamma correction when target gamma is not 1.0f, but this
+		// is to maintain old behavior and users won't have to change content.
+		if (RenderTargetFormat == RTF_RGBA8 && FMath::Abs(DisplayGamme - 1.0f) > KINDA_SMALL_NUMBER)
+		{
+			RenderTargetFormat = RTF_RGBA8_SRGB;
+			SRGB = true;
+		}
+	}
+}
+
+void UTextureRenderTarget2D::PostLoad()
+{
+	float OriginalSizeX = SizeX;
+	float OriginalSizeY = SizeY;
+
+	SizeX = FMath::Min<int32>(SizeX, GTextureRenderTarget2DMaxSizeX);
+	SizeY = FMath::Min<int32>(SizeY, GTextureRenderTarget2DMaxSizeY);
+
+	// Maintain aspect ratio if clamped
+	if( SizeX != OriginalSizeX || SizeY != OriginalSizeY )
+	{
+		float ScaleX = SizeX / OriginalSizeX;
+		float ScaleY = SizeY / OriginalSizeY;
+		
+		if( ScaleX < ScaleY )
+		{
+			SizeY = OriginalSizeY * ScaleX;
+		}
+		else
+		{
+			SizeX = OriginalSizeX * ScaleY;
+		}
+	}
+	
+	Super::PostLoad();
+}
+
+
+FString UTextureRenderTarget2D::GetDesc()	
+{
+	// size and format string
+	return FString::Printf( TEXT("Render to Texture %dx%d[%s]"), SizeX, SizeY, GPixelFormats[GetFormat()].Name );
+}
+
+UTexture2D* UTextureRenderTarget2D::ConstructTexture2D(UObject* Outer, const FString& NewTexName, EObjectFlags InObjectFlags, uint32 Flags, TArray<uint8>* AlphaOverride)
+{
+	UTexture2D* Result = NULL;
+#if WITH_EDITOR
+	// Check render target size is valid and power of two.
+	const bool bIsValidSize = (SizeX != 0 && !(SizeX & (SizeX - 1)) &&
+		SizeY != 0 && !(SizeY & (SizeY - 1)));
+	// The r2t resource will be needed to read its surface contents
+	FRenderTarget* RenderTarget = GameThread_GetRenderTargetResource();
+
+	const EPixelFormat PixelFormat = GetFormat();
+	ETextureSourceFormat TextureFormat = TSF_Invalid;
+	switch (PixelFormat)
+	{
+	case PF_B8G8R8A8:
+		TextureFormat = TSF_BGRA8;
+		break;
+	case PF_FloatRGBA:
+		TextureFormat = TSF_RGBA16F;
+		break;
+	case PF_G8:
+		TextureFormat = TSF_G8;
+		break;
+	default:
+	{
+		FText InvalidFormatMessage = NSLOCTEXT("TextureRenderTarget2D", "UnsupportedFormatRenderTarget2DWarning", "Unsupported format when creating Texture2D from TextureRenderTarget2D. Supported formats are B8G8R8A8, FloatRGBA and G8.");
+		FMessageDialog::Open(EAppMsgType::Ok, InvalidFormatMessage);
+	}
+	}
+
+	// exit if source is not compatible.
+	if (bIsValidSize == false || RenderTarget == NULL || TextureFormat == TSF_Invalid)
+	{
+		return Result;
+	}
+
+	// create the 2d texture
+	Result = NewObject<UTexture2D>(Outer, FName(*NewTexName), InObjectFlags);
+	
+	UpdateTexture2D(Result, TextureFormat, Flags, AlphaOverride);
+
+	// if render target gamma used was 1.0 then disable SRGB for the static texture
+	if (FMath::Abs(RenderTarget->GetDisplayGamma() - 1.0f) < KINDA_SMALL_NUMBER)
+	{
+		Flags &= ~CTF_SRGB;
+	}
+
+	Result->SRGB = (Flags & CTF_SRGB) != 0;
+	Result->MipGenSettings = TMGS_FromTextureGroup;
+
+	if ((Flags & CTF_AllowMips) == 0)
+	{
+		Result->MipGenSettings = TMGS_NoMipmaps;
+	}
+
+
+	if (Flags & CTF_Compress)
+	{
+		// Set compression options.
+		Result->DeferCompression = (Flags & CTF_DeferCompression) ? true : false;
+	}
+	else
+	{
+		// Disable compression
+		Result->CompressionNone = true;
+		Result->DeferCompression = false;
+	}
+	Result->PostEditChange();
+#endif
+	return Result;
+}
+
+void UTextureRenderTarget2D::UpdateTexture2D(UTexture2D* InTexture2D, ETextureSourceFormat InTextureFormat, uint32 Flags, TArray<uint8>* AlphaOverride)
+{
+#if WITH_EDITOR
+	FRenderTarget* RenderTarget = GameThread_GetRenderTargetResource();
+
+	const EPixelFormat PixelFormat = GetFormat();
+	TextureCompressionSettings CompressionSettingsForTexture = PixelFormat == EPixelFormat::PF_FloatRGBA ? TC_HDR : TC_Default;
+
+	// init to the same size as the 2d texture
+	InTexture2D->Source.Init(SizeX, SizeY, 1, 1, InTextureFormat);
+
+	uint8* TextureData = (uint8*)InTexture2D->Source.LockMip(0);
+	const int32 TextureDataSize = InTexture2D->Source.CalcMipSize(0);
+
+	// read the 2d surface
+	if (InTextureFormat == TSF_BGRA8)
+	{
+		TArray<FColor> SurfData;
+		RenderTarget->ReadPixels(SurfData);
+		// override the alpha if desired
+		if (AlphaOverride)
+		{
+			check(SurfData.Num() == AlphaOverride->Num());
+			for (int32 Pixel = 0; Pixel < SurfData.Num(); Pixel++)
+			{
+				SurfData[Pixel].A = (*AlphaOverride)[Pixel];
+			}
+		}
+		else if (Flags & CTF_RemapAlphaAsMasked)
+		{
+			// if the target was rendered with a masked texture, then the depth will probably have been written instead of 0/255 for the
+			// alpha, and the depth when unwritten will be 255, so remap 255 to 0 (masked out area) and anything else as 255 (written to area)
+			for (int32 Pixel = 0; Pixel < SurfData.Num(); Pixel++)
+			{
+				SurfData[Pixel].A = (SurfData[Pixel].A == 255) ? 0 : 255;
+			}
+		}
+		else if (Flags & CTF_ForceOpaque)
+		{
+			for (int32 Pixel = 0; Pixel < SurfData.Num(); Pixel++)
+			{
+				SurfData[Pixel].A = 255;
+			}
+		}
+		// copy the 2d surface data to the first mip of the static 2d texture
+		check(TextureDataSize == SurfData.Num() * sizeof(FColor));
+		FMemory::Memcpy(TextureData, SurfData.GetData(), TextureDataSize);
+	}
+	else if (InTextureFormat == TSF_RGBA16F)
+	{
+		TArray<FFloat16Color> SurfData;
+		RenderTarget->ReadFloat16Pixels(SurfData);
+		// override the alpha if desired
+		if (AlphaOverride)
+		{
+			check(SurfData.Num() == AlphaOverride->Num());
+			for (int32 Pixel = 0; Pixel < SurfData.Num(); Pixel++)
+			{
+				SurfData[Pixel].A = ((float)(*AlphaOverride)[Pixel]) / 255.0f;
+			}
+		}
+		else if (Flags & CTF_RemapAlphaAsMasked)
+		{
+			// if the target was rendered with a masked texture, then the depth will probably have been written instead of 0/255 for the
+			// alpha, and the depth when unwritten will be 255, so remap 255 to 0 (masked out area) and anything else as 1 (written to area)
+			for (int32 Pixel = 0; Pixel < SurfData.Num(); Pixel++)
+			{
+				SurfData[Pixel].A = (SurfData[Pixel].A == 255) ? 0.0f : 1.0f;
+			}
+		}
+		else if (Flags & CTF_ForceOpaque)
+		{
+			for (int32 Pixel = 0; Pixel < SurfData.Num(); Pixel++)
+			{
+				SurfData[Pixel].A = 1.0f;
+			}
+		}
+		// copy the 2d surface data to the first mip of the static 2d texture
+		check(TextureDataSize == SurfData.Num() * sizeof(FFloat16Color));
+		FMemory::Memcpy(TextureData, SurfData.GetData(), TextureDataSize);
+	}
+	else if (InTextureFormat == TSF_G8)
+	{
+		TArray<FColor> SurfData;
+		RenderTarget->ReadPixels(SurfData);
+		check(TextureDataSize == SurfData.Num() * sizeof(uint8));
+		for (int32 Pixel = 0; Pixel < SurfData.Num(); Pixel++)
+		{
+			TextureData[Pixel] = SurfData[Pixel].R;
+		}
+	}
+
+	InTexture2D->Source.UnlockMip(0);
+
+	InTexture2D->CompressionSettings = CompressionSettingsForTexture;
+#endif
+}
+
+/*-----------------------------------------------------------------------------
+	FTextureRenderTarget2DResource
+-----------------------------------------------------------------------------*/
+
+FTextureRenderTarget2DResource::FTextureRenderTarget2DResource(const class UTextureRenderTarget2D* InOwner)
+	:	Owner(InOwner)
+	,	ClearColor(InOwner->ClearColor)
+	,	Format(InOwner->GetFormat())
+	,	TargetSizeX(Owner->SizeX)
+	,	TargetSizeY(Owner->SizeY)
+{
+	
+}
+
+/**
+ * Clamp size of the render target resource to max values
+ *
+ * @param MaxSizeX max allowed width
+ * @param MaxSizeY max allowed height
+ */
+void FTextureRenderTarget2DResource::ClampSize(int32 MaxSizeX,int32 MaxSizeY)
+{
+	// upsize to go back to original or downsize to clamp to max
+ 	int32 NewSizeX = FMath::Min<int32>(Owner->SizeX,MaxSizeX);
+ 	int32 NewSizeY = FMath::Min<int32>(Owner->SizeY,MaxSizeY);
+	if (NewSizeX != TargetSizeX || NewSizeY != TargetSizeY)
+	{
+		TargetSizeX = NewSizeX;
+		TargetSizeY = NewSizeY;
+		// reinit the resource with new TargetSizeX,TargetSizeY
+		check(TargetSizeX >= 0 && TargetSizeY >= 0);
+		UpdateRHI();
+	}	
+}
+
+/**
+ * Initializes the RHI render target resources used by this resource.
+ * Called when the resource is initialized, or when reseting all RHI resources.
+ * This is only called by the rendering thread.
+ */
+void FTextureRenderTarget2DResource::InitDynamicRHI()
+{
+	if( TargetSizeX > 0 && TargetSizeY > 0 )
+	{
+		// Create the RHI texture. Only one mip is used and the texture is targetable for resolve.
+		ETextureCreateFlags TexCreateFlags = Owner->IsSRGB() ? TexCreate_SRGB : TexCreate_None;
+		TexCreateFlags |= Owner->bGPUSharedFlag ? TexCreate_Shared : TexCreate_None;
+		FRHIResourceCreateInfo CreateInfo = FRHIResourceCreateInfo(FClearValueBinding(ClearColor));
+		CreateInfo.DebugName = TEXT("TextureRenderTarget2DResource");
+
+		if (Owner->bAutoGenerateMips)
+		{
+			TexCreateFlags |= (TexCreate_GenerateMipCapable | TexCreate_UAV);
+		}
+
+		if (Owner->bCanCreateUAV)
+		{
+			TexCreateFlags |= TexCreate_UAV;
+		}
+
+		RHICreateTargetableShaderResource2D(
+			Owner->SizeX, 
+			Owner->SizeY, 
+			Format,
+			Owner->GetNumMips(),
+			TexCreateFlags,
+			TexCreate_RenderTargetable,
+			Owner->bNeedsTwoCopies,
+			CreateInfo,
+			RenderTargetTextureRHI,
+			Texture2DRHI
+			);
+		TextureRHI = (FTextureRHIRef&)Texture2DRHI;
+		RHIUpdateTextureReference(Owner->TextureReference.TextureReferenceRHI,TextureRHI);
+
+		AddToDeferredUpdateList(true);
+	}
+
+	// Create the sampler state RHI resource.
+	FSamplerStateInitializerRHI SamplerStateInitializer
+	(
+		(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter( Owner ),
+		Owner->AddressX == TA_Wrap ? AM_Wrap : (Owner->AddressX == TA_Clamp ? AM_Clamp : AM_Mirror),
+		Owner->AddressY == TA_Wrap ? AM_Wrap : (Owner->AddressY == TA_Clamp ? AM_Clamp : AM_Mirror),
+		AM_Wrap
+	);
+	SamplerStateRHI = GetOrCreateSamplerState( SamplerStateInitializer );
+}
+
+/**
+ * Release the RHI render target resources used by this resource.
+ * Called when the resource is released, or when reseting all RHI resources.
+ * This is only called by the rendering thread.
+ */
+void FTextureRenderTarget2DResource::ReleaseDynamicRHI()
+{
+	// release the FTexture RHI resources here as well
+	ReleaseRHI();
+
+	RHIUpdateTextureReference(Owner->TextureReference.TextureReferenceRHI, nullptr);
+	Texture2DRHI.SafeRelease();
+	RenderTargetTextureRHI.SafeRelease();
+	MipGenerationCache.SafeRelease();
+
+	// remove grom global list of deferred clears
+	RemoveFromDeferredUpdateList();
+}
+
+#include "SceneUtils.h"
+/**
+ * Updates (resolves) the render target texture.
+ * Optionally clears the contents of the render target to green.
+ * This is only called by the rendering thread.
+ */
+void FTextureRenderTarget2DResource::UpdateDeferredResource( FRHICommandListImmediate& RHICmdList, bool bClearRenderTarget/*=true*/ )
+{
+	FMemMark Mark(FMemStack::Get());
+
+	SCOPED_DRAW_EVENT(RHICmdList, GPUResourceUpdate)
+	RemoveFromDeferredUpdateList();
+
+	FRDGBuilder GraphBuilder(RHICmdList);
+
+	CacheRenderTarget(RenderTargetTextureRHI, TEXT("MipGeneration"), MipGenerationCache);
+	FRDGTextureRef RenderTargetTextureRDG = GraphBuilder.RegisterExternalTexture(MipGenerationCache);
+	FRDGTextureRef TextureRDG = GraphBuilder.RegisterExternalTexture(CreateRenderTarget(TextureRHI, TEXT("TextureRenderTarget2DResource")));
+
+ 	// clear the target surface to green
+	if (bClearRenderTarget)
+	{
+		ensure(RenderTargetTextureRHI.IsValid() && (RenderTargetTextureRHI->GetClearColor() == ClearColor));
+		AddClearRenderTargetPass(GraphBuilder, RenderTargetTextureRDG, ClearColor);
+	}
+ 
+	if (Owner->bAutoGenerateMips)
+	{
+		/**Convert the input values from the editor to a compatible format for FSamplerStateInitializerRHI. 
+			Ensure default sampler is Bilinear clamp*/
+		FGenerateMips::Execute(GraphBuilder, RenderTargetTextureRDG, FGenerateMipsParams{
+			Owner->MipsSamplerFilter == TF_Nearest ? SF_Point : (Owner->MipsSamplerFilter == TF_Trilinear ? SF_Trilinear : SF_Bilinear),
+			Owner->MipsAddressU == TA_Wrap ? AM_Wrap : (Owner->MipsAddressU == TA_Mirror ? AM_Mirror : AM_Clamp),
+			Owner->MipsAddressV == TA_Wrap ? AM_Wrap : (Owner->MipsAddressV == TA_Mirror ? AM_Mirror : AM_Clamp)});
+	}
+
+	AddCopyToResolveTargetPass(GraphBuilder, RenderTargetTextureRDG, TextureRDG, FResolveParams());
+
+	GraphBuilder.Execute();
+}
+
+void FTextureRenderTarget2DResource::Resize(int32 NewSizeX, int32 NewSizeY)
+{
+	if (TargetSizeX != NewSizeX || TargetSizeY != NewSizeY)
+	{
+		TargetSizeX = NewSizeX;
+		TargetSizeY = NewSizeY;
+		UpdateRHI();
+	}
+}
+
+/** 
+ * @return width of target
+ */
+uint32 FTextureRenderTarget2DResource::GetSizeX() const
+{
+	return TargetSizeX;
+}
+
+/** 
+ * @return height of target
+ */
+uint32 FTextureRenderTarget2DResource::GetSizeY() const
+{
+	return TargetSizeY;
+}
+
+/** 
+ * @return dimensions of target surface
+ */
+FIntPoint FTextureRenderTarget2DResource::GetSizeXY() const
+{ 
+	return FIntPoint(TargetSizeX, TargetSizeY); 
+}
+
+/** 
+* Render target resource should be sampled in linear color space
+*
+* @return display gamma expected for rendering to this render target 
+*/
+float FTextureRenderTarget2DResource::GetDisplayGamma() const
+{
+	if (Owner->TargetGamma > KINDA_SMALL_NUMBER * 10.0f)
+	{
+		return Owner->TargetGamma;
+	}
+	if (Format == PF_FloatRGB || Format == PF_FloatRGBA || Owner->bForceLinearGamma )
+	{
+		return 1.0f;
+	}
+	return FTextureRenderTargetResource::GetDisplayGamma();
+}

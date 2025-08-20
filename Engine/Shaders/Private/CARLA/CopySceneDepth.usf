@@ -1,0 +1,26 @@
+#include "../Common.ush"
+
+Texture2D SceneDepth;
+SamplerState SceneDepthSampler;
+float2 TextureExtent;
+
+void Main(
+	float4 SvPosition : SV_POSITION,
+	out float4 OutColor : SV_Target0)
+{
+	float2 UV = SvPosition.xy / TextureExtent.xy;
+	float Depth = Texture2DSampleLevel(SceneDepth, SceneDepthSampler, UV, 1).r;
+#if 1
+	Depth = ConvertFromDeviceZ(Depth);
+#else // Buffer visualization approach:
+#if HAS_INVERTED_Z_BUFFER
+	Depth = 1 - Depth;
+#endif
+	Depth = (exp2(Depth * 64) - 1.0) * (1.0 / (exp2(64) - 1.0));
+	Depth *= Depth;
+	Depth *= Depth;
+	Depth *= Depth;
+#endif
+	OutColor.rgb = float3(Depth, Depth, Depth);
+	OutColor.a = 0;
+}

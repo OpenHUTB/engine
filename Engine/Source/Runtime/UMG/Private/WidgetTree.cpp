@@ -1,0 +1,275 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#include "Blueprint/WidgetTree.h"
+#include "Components/Visual.h"
+#include "Components/Widget.h"
+#include "Blueprint/UserWidget.h"
+#include "UMGPrivate.h"
+
+/////////////////////////////////////////////////////
+// UWidgetTree
+
+UWidgetTree::UWidgetTree(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+}
+
+UWorld* UWidgetTree::GetWorld() const
+{
+	// The outer of a widget tree should be a user widget
+	if ( UUserWidget* OwningWidget = Cast<UUserWidget>(GetOuter()) )
+	{
+		return OwningWidget->GetWorld();
+	}
+
+	return nullptr;
+}
+
+UWidget* UWidgetTree::FindWidget(const FName& Name) const
+{
+	UWidget* FoundWidget = nullptr;
+
+	ForEachWidget([&] (UWidget* Widget) {
+		if ( Widget->GetFName() == Name )
+		{
+			FoundWidget = Widget;
+		}
+	});
+
+	return FoundWidget;
+}
+
+UWidget* UWidgetTree::FindWidget(TSharedRef<SWidget> InWidget) const
+{
+	UWidget* FoundWidget = nullptr;
+
+	ForEachWidget([&] (UWidget* Widget) {
+		if ( Widget->GetCachedWidget() == InWidget )
+		{
+			FoundWidget = Widget;
+		}
+	});
+
+	return FoundWidget;
+}
+
+UPanelWidget* UWidgetTree::FindWidgetParent(UWidget* Widget, int32& OutChildIndex)
+{
+	UPanelWidget* Parent = Widget->GetParent();
+	if ( Parent != nullptr )
+	{
+		OutChildIndex = Parent->GetChildIndex(Widget);
+	}
+	else
+	{
+		OutChildIndex = 0;
+	}
+
+	return Parent;
+}
+
+UWidget* UWidgetTree::FindWidgetChild(UPanelWidget* ParentWidget, FName ChildWidgetName, int32& OutChildIndex)
+{
+	OutChildIndex = INDEX_NONE;
+	UWidget* FoundChild = nullptr;
+
+	if (ParentWidget)
+	{
+		const auto CheckWidgetFunc = [&FoundChild, ChildWidgetName](UWidget* Widget) 
+			{
+				if (!FoundChild && Widget->GetFName() == ChildWidgetName)
+				{
+					FoundChild = Widget;
+				}
+			};
+
+		// Check all the children of the given ParentWidget, but only track the index at the top level
+		for (int32 ChildIdx = 0; ChildIdx < ParentWidget->GetChildrenCount(); ++ChildIdx)
+		{
+			CheckWidgetFunc(ParentWidget->GetChildAt(ChildIdx));
+
+			if (!FoundChild)
+			{
+				ForWidgetAndChildren(ParentWidget->GetChildAt(ChildIdx), CheckWidgetFunc);
+			}
+
+			if (FoundChild)
+			{
+				OutChildIndex = ChildIdx;
+				break;
+			}
+		}
+	}
+
+	return FoundChild;
+}
+
+int32 UWidgetTree::FindChildIndex(const UPanelWidget* ParentWidget, const UWidget* ChildWidget)
+{
+	const UWidget* CurrentWidget = ChildWidget;
+	while (CurrentWidget)
+	{
+		const UPanelWidget* NextParent = CurrentWidget->Slot ? CurrentWidget->Slot->Parent : nullptr;
+		if (NextParent && NextParent == ParentWidget)
+		{
+			return NextParent->GetChildIndex(CurrentWidget);
+		}
+
+		CurrentWidget = NextParent;
+	}
+
+	return INDEX_NONE;
+}
+
+bool UWidgetTree::RemoveWidget(UWidget* InRemovedWidget)
+{
+	bool bRemoved = false;
+
+	UPanelWidget* InRemovedWidgetParent = InRemovedWidget->GetParent();
+	if ( InRemovedWidgetParent )
+	{
+		if ( InRemovedWidgetParent->RemoveChild(InRemovedWidget) )
+		{
+			bRemoved = true;
+		}
+	}
+	// If the widget being removed is the root, null it out.
+	else if ( InRemovedWidget == RootWidget )
+	{
+		RootWidget = NULL;
+		bRemoved = true;
+	}
+
+	return bRemoved;
+}
+
+bool UWidgetTree::TryMoveWidgetToNewTree(UWidget* Widget, UWidgetTree* DestinationTree)
+{
+	bool bWidgetMoved = false;
+
+	// A Widget's Outer is always a WidgetTree
+	UWidgetTree* OriginalTree = Widget ? Cast<UWidgetTree>(Widget->GetOuter()) : nullptr;
+
+	if (DestinationTree && OriginalTree && OriginalTree != DestinationTree)
+	{
+		bWidgetMoved = Widget->Rename(*Widget->GetName(), DestinationTree, REN_ForceNoResetLoaders | REN_DontCreateRedirectors);
+	}
+
+	return bWidgetMoved;
+}
+
+void UWidgetTree::GetAllWidgets(TArray<UWidget*>& Widgets) const
+{
+	ForEachWidget([&Widgets] (UWidget* Widget) {
+		Widgets.Add(Widget);
+	});
+}
+
+void UWidgetTree::GetChildWidgets(UWidget* Parent, TArray<UWidget*>& Widgets)
+{
+	ForWidgetAndChildren(Parent, [&Widgets] (UWidget* Widget) {
+		Widgets.Add(Widget);
+	});
+}
+
+void UWidgetTree::ForEachWidget(TFunctionRef<void(UWidget*)> Predicate) const
+{
+	if ( RootWidget )
+	{
+		Predicate(RootWidget);
+
+		ForWidgetAndChildren(RootWidget, Predicate);
+	}
+}
+
+void UWidgetTree::ForEachWidgetAndDescendants(TFunctionRef<void(UWidget*)> Predicate) const
+{
+	if ( RootWidget )
+	{
+		Predicate(RootWidget);
+
+		ForWidgetAndChildren(RootWidget, [&Predicate] (UWidget* Child) {
+			if ( UUserWidget* UserWidgetChild = Cast<UUserWidget>(Child) )
+			{
+				if ( UserWidgetChild->WidgetTree )
+				{
+					UserWidgetChild->WidgetTree->ForEachWidgetAndDescendants(Predicate);
+				}
+			}
+			else
+			{
+				Predicate(Child);
+			}
+		});
+	}
+}
+
+void UWidgetTree::ForWidgetAndChildren(UWidget* Widget, TFunctionRef<void(UWidget*)> Predicate)
+{
+	// Search for any named slot with content that we need to dive into.
+	if ( INamedSlotInterface* NamedSlotHost = Cast<INamedSlotInterface>(Widget) )
+	{
+		TArray<FName> SlotNames;
+		NamedSlotHost->GetSlotNames(SlotNames);
+
+		for ( FName SlotName : SlotNames )
+		{
+			if ( UWidget* SlotContent = NamedSlotHost->GetContentForSlot(SlotName) )
+			{
+				Predicate(SlotContent);
+
+				ForWidgetAndChildren(SlotContent, Predicate);
+			}
+		}
+	}
+
+	// Search standard children.
+	if ( UPanelWidget* PanelParent = Cast<UPanelWidget>(Widget) )
+	{
+		for ( int32 ChildIndex = 0; ChildIndex < PanelParent->GetChildrenCount(); ChildIndex++ )
+		{
+			if ( UWidget* ChildWidget = PanelParent->GetChildAt(ChildIndex) )
+			{
+				Predicate(ChildWidget);
+
+				ForWidgetAndChildren(ChildWidget, Predicate);
+			}
+		}
+	}
+}
+
+void UWidgetTree::PreSave(const class ITargetPlatform* TargetPlatform)
+{
+	if (TargetPlatform == nullptr)
+	{
+#if WITH_EDITORONLY_DATA
+		AllWidgets.Empty();
+
+		GetAllWidgets(AllWidgets);
+#endif
+	}
+
+#if WITH_EDITOR && UE_BUILD_DEBUG
+	ForEachWidgetAndDescendants([this](UWidget* InChildWidget) {
+		// Each widget tree is expected to only contain direct children,
+		// adding a check to see if any of them contain anything but direct children.
+		// It's unclear if this is actually a problem, but it is unexpected based on
+		// the design, so adding a check to see if that proves not to be the case.
+		if (InChildWidget->GetOuter() != this)
+		{
+			UE_LOG(LogUMG, Warning, TEXT("WidgetTree(%s) Contains Foreign Child (%s)"), *GetPathName(), *InChildWidget->GetPathName());
+		}
+	});
+#endif
+
+	Super::PreSave(TargetPlatform);
+}
+
+void UWidgetTree::PostLoad()
+{
+	Super::PostLoad();
+
+#if WITH_EDITORONLY_DATA
+	AllWidgets.Empty();
+#endif
+}

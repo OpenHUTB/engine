@@ -1,0 +1,136 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Tools.DotNETCommon;
+
+namespace UnrealBuildTool
+{
+	/// <summary>
+	/// Interface to allow exposing public methods from the toolchain to other assemblies
+	/// </summary>
+	public interface IAndroidToolChain
+	{
+		/// <summary>
+		/// Finds the list of supported architectures
+		/// </summary>
+		/// <returns>The targeted architectures</returns>
+		List<string> GetAllArchitectures();
+
+		/// <summary>
+		/// Finds the list of supported GPU architectures
+		/// </summary>
+		/// <returns>The targeted GPU architectures</returns>
+		List<string> GetAllGPUArchitectures();
+
+		/// <summary>
+		/// Finds the list of supported GPU architectures
+		/// </summary>
+		/// <returns>The targeted GPU architectures</returns>
+		int GetNdkApiLevelInt(int MinNDK);
+	}
+
+	/// <summary>
+	/// Interface to allow exposing public methods from the Android deployment context to other assemblies
+	/// </summary>
+	public interface IAndroidDeploy
+	{
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <returns></returns>
+		bool GetPackageDataInsideApk();
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="Architectures"></param>
+		/// <param name="inPluginExtraData"></param>
+		void SetAndroidPluginData(List<string> Architectures, List<string> inPluginExtraData);
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="ProjectFile"></param>
+		/// <param name="ProjectName"></param>
+		/// <param name="ProjectDirectory"></param>
+		/// <param name="ExecutablePath"></param>
+		/// <param name="EngineDirectory"></param>
+		/// <param name="bForDistribution"></param>
+		/// <param name="CookFlavor"></param>
+		/// <param name="Configuration"></param>
+		/// <param name="bIsDataDeploy"></param>
+		/// <param name="bSkipGradleBuild"></param>
+		/// <returns></returns>
+		bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string ProjectName, DirectoryReference ProjectDirectory, string ExecutablePath, string EngineDirectory, bool bForDistribution, string CookFlavor, UnrealTargetConfiguration Configuration, bool bIsDataDeploy, bool bSkipGradleBuild);
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="ProjectName"></param>
+		/// <param name="ProjectDirectoryFullName"></param>
+		/// <param name="Type"></param>
+		/// <param name="bIsEmbedded"></param>
+		bool SavePackageInfo(string ProjectName, string ProjectDirectoryFullName, TargetType Type, bool bIsEmbedded);
+	}
+
+	/// <summary>
+	/// Public Android functions exposed to UAT
+	/// </summary>
+	public static class AndroidExports
+	{
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="ProjectFile"></param>
+		/// <returns></returns>
+		public static IAndroidToolChain CreateToolChain(FileReference ProjectFile)
+		{
+			return new AndroidToolChain(ProjectFile, false, null, null);
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="ProjectFile"></param>
+		/// <param name="InForcePackageData"></param>
+		/// <returns></returns>
+		public static IAndroidDeploy CreateDeploymentHandler(FileReference ProjectFile, bool InForcePackageData)
+		{
+			return new UEDeployAndroid(ProjectFile, InForcePackageData);
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <returns></returns>
+		public static bool ShouldMakeSeparateApks()
+		{
+			return UEDeployAndroid.ShouldMakeSeparateApks();
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="NDKArch"></param>
+		/// <returns></returns>
+		public static string GetUE4Arch(string NDKArch)
+		{
+			return UEDeployAndroid.GetUE4Arch(NDKArch);
+		}
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="SourceFile"></param>
+		/// <param name="TargetFile"></param>
+		public static void StripSymbols(FileReference SourceFile, FileReference TargetFile)
+		{
+			AndroidToolChain ToolChain = new AndroidToolChain(null, false, null, null);
+			ToolChain.StripSymbols(SourceFile, TargetFile);
+		}
+	}
+}

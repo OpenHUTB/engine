@@ -3,7 +3,7 @@
 var webRtcPlayerObj = null;
 var print_stats = false;
 var print_inputs = false;
-var connect_on_load = false;
+var connect_on_load = true;
 
 var is_reconnection = false;
 var ws;
@@ -254,6 +254,7 @@ function showPlayOverlay() {
 	img.id = 'playButton';
 	img.src = '/images/Play.png';
 	img.alt = 'Start Streaming';
+	webRtcPlayerObj.video.play();
 	setOverlay('clickableState', img, event => {
 		if (webRtcPlayerObj)
 			webRtcPlayerObj.video.play();

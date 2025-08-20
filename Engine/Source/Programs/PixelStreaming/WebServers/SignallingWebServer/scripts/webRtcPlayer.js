@@ -50,6 +50,8 @@
 
             video.id = "streamingVideo";
             video.playsInline = true;
+            video.autoplay = true;
+            video.muted = true; // (andriy): mute video to avoid feedback loop when
             video.addEventListener('loadedmetadata', function(e){
                 if(self.onVideoInitialised){
                     self.onVideoInitialised();
@@ -59,6 +61,7 @@
         }
 
         this.video = createWebRtcVideo();
+		this.cfg.offerExtmapAllowMixed = false;
 
         onsignalingstatechange = function(state) {
             console.info('signaling state change:', state)
@@ -120,6 +123,7 @@
             pc.createOffer(self.sdpConstraints).then(function (offer) {
                 offer.sdp = offer.sdp.replace("useinbandfec=1", "useinbandfec=1;stereo=1;maxaveragebitrate=128000");
             	pc.setLocalDescription(offer);
+				offer.sdp = offer.sdp.replace(/(a=extmap-allow-mixed)\r\n/gm, "");
             	if (self.onWebRtcOffer) {
             		// (andriy): increase start bitrate from 300 kbps to 20 mbps and max bitrate from 2.5 mbps to 100 mbps
                     // (100 mbps means we don't restrict encoder at all)

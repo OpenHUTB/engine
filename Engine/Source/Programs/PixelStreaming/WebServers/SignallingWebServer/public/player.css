@@ -142,7 +142,7 @@ video{
 }
 
 #videoMessageOverlay{
-	z-index: 20;
+	z-index: -1;
 	color: var(--colour4);;
 	font-size: 1.8em;
 	position: absolute;
@@ -150,9 +150,15 @@ video{
 	font-family: var(--inputFont);;
 	width: 100%;
 }
+#streamingVideo{
+	z-index: 1;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+}
 
 #videoPlayOverlay{
-	z-index: 30;
+	z-index: -1;
 	position: absolute;
 	color: var(--colour4);
 	font-size: 1.8em;

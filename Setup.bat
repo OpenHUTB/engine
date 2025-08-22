@@ -22,14 +22,16 @@ echo #!/bin/sh >.git\hooks\post-merge
 echo Engine/Binaries/DotNET/GitDependencies.exe %* >>.git\hooks\post-merge
 :no_git_hooks_directory
 
+rem 注册引擎安装...
+if not exist .\Engine\Binaries\Win64\UnrealVersionSelector-Win64-Shipping.exe goto :no_unreal_version_selector
+:: fix build blocked by UnrealVersionSelector using slient and before prerequisites installation
+:: reference: https://forums.unrealengine.com/t/silent-build-blocked-by-unrealversionselector-on-windows/271955/2
+.\Engine\Binaries\Win64\UnrealVersionSelector-Win64-Shipping.exe /register /unattended
+:no_unreal_version_selector
+
 rem 安装先决条件...
 echo Installing prerequisites...
 start /wait Engine\Extras\Redist\en-us\UE4PrereqSetup_x64.exe /quiet
-
-rem 注册引擎安装...
-if not exist .\Engine\Binaries\Win64\UnrealVersionSelector-Win64-Shipping.exe goto :no_unreal_version_selector
-.\Engine\Binaries\Win64\UnrealVersionSelector-Win64-Shipping.exe /register
-:no_unreal_version_selector
 
 rem 完成!
 goto :end

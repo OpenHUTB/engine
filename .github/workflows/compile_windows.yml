@@ -1,4 +1,3 @@
-
 name: Build in windows
 
 on:
@@ -28,5 +27,4 @@ jobs:
        
       - name: Build engine
         run: |
-          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\bin\MSBuild.exe" Engine\Intermediate\ProjectFiles\UE4.vcxproj
-        
+          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\bin\MSBuild.exe Engine\Intermediate\ProjectFiles\UE4.vcxproj"

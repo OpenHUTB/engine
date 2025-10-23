@@ -32,6 +32,7 @@ if not exist .\Engine\Binaries\Win64\UnrealVersionSelector-Win64-Shipping.exe go
 rem 安装先决条件...
 echo Installing prerequisites...
 start /wait Engine\Extras\Redist\en-us\UE4PrereqSetup_x64.exe /quiet
+echo Prerequisites installed.
 
 rem 完成!
 goto :end

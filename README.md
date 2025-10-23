@@ -1,12 +1,12 @@
-包含 Carla 补丁的虚幻引擎
+[模拟器](https://github.com/OpenHUTB/hutb) 的引擎
 =============
 
 ## 构建步骤
-1. 在终端中，导航到要保存虚幻引擎的位置并克隆虚幻引擎仓库：
+1. 在终端中，导航到要保存引擎的位置并克隆引擎仓库：
 ```shell
 git clone https://github.com/OpenHUTB/engine.git
 ```
-注意：尽可能使虚幻引擎文件夹靠近根目录，因为如果路径超过一定长度，则会在步骤 2 中的 `Setup.bat` 返回错误。
+注意：尽可能使引擎文件夹靠近根目录，因为如果路径超过一定长度，则会在步骤 2 中的 `Setup.bat` 返回错误。
 
 2. 运行配置脚本：
 ```shell
@@ -22,7 +22,7 @@ GenerateProjectFiles.bat
 
 4.编译解决方案后，可以打开引擎，通过启动可执行文件 `Engine\Binaries\Win64\UE4Editor.exe` 来检查所有内容是否已正确安装。
 
-笔记：如果安装成功，虚幻引擎的版本选择器应该能够识别。可以通过右键单击任何 `.uproject` 文件并选择 `Switch Unreal Engine version` 来检查这一点。应该会看到一个弹出窗口，显示`Source Build at PATH`，这里 PATH 是选择的安装路径。如果您在右键单击文件 `.uproject` 时看不到此选择器 `Generate Visual Studio project files`，则虚幻引擎安装出现问题，可能需要重新正确安装（双击运行`engine/Engine/Binaries/Win64/UnrealVersionSelector-Win64-Shipping.exe`能达到同样的效果）。
+笔记：如果安装成功，引擎的版本选择器应该能够识别。可以通过右键单击任何 `.uproject` 文件并选择 `Switch Unreal Engine version` 来检查这一点。应该会看到一个弹出窗口，显示`Source Build at PATH`，这里 PATH 是选择的安装路径。如果您在右键单击文件 `.uproject` 时看不到此选择器 `Generate Visual Studio project files`，则引擎安装出现问题，可能需要重新正确安装（双击运行`engine/Engine/Binaries/Win64/UnrealVersionSelector-Win64-Shipping.exe`能达到同样的效果）。
 
 重要：到目前为止发生了很多事情。强烈建议在继续之前重新启动计算机。
 
@@ -40,11 +40,13 @@ GenerateProjectFiles.bat
 
 
 ## 发布安装版本
-参考[链接](https://github.com/chiefGui/ue-from-source?tab=readme-ov-file#step-by-step-1) 进行虚幻引擎的发布。
+参考[链接](https://github.com/chiefGui/ue-from-source?tab=readme-ov-file#step-by-step-1) 进行引擎的发布。
 
 1. 使用 Visual Studio 打开 `UE4.shn` 。
 2. 在右侧边栏，您应该会看到一个`解决方案资源管理器`面板。展开`Programs`文件夹并找到`AutomationTool`项目（`Engine\Source\Programs\AutomationTool`）：
+
 ![Image](Engine/Documentation/fig/AutomationTool.png)
+
 3. 右键单击它并选择`生成(Build)`，应该很快。
 
 ### 运行安装软件的构建脚本
@@ -85,7 +87,7 @@ Unable to find installation of PDBCOPY.EXE
 
 
 ## 内容
-虚幻引擎源码的构成。
+引擎源码的构成。
 
 ### 编译
 [编译配置参考](https://docs.unrealengine.com/4.26/zh-CN/ProductionPipelines/DevelopmentSetup/BuildConfigurations/)
@@ -102,7 +104,7 @@ Unable to find installation of PDBCOPY.EXE
 * 右键`.uproject`文件没有`Switch Unreal Engine version...`
 解决：双击`Engine\Binaries\Win64\UnrealVersionSelector-Win64-Shipping.exe`，出现`Register this directory as an Unreal Engine installation?`后点击`是(Y)`。
 
-* 增加`matlab`插件进行虚幻引擎编译，导致启动虚幻编辑器启动失败，原因不明。
+* 增加`matlab`插件进行引擎编译，导致启动编辑器启动失败，原因不明。
 
 
 ## 参考链接

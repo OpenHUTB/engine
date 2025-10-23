@@ -55,6 +55,16 @@ GenerateProjectFiles.bat
 如果一切顺利，您应该会看到`LocalBuilds`与该文件夹处于同一级别的`Engine`文件夹，并且控制台中没有错误。(还包括一个 InstalledDDC 文件夹：DerivedDataCache)。
 
 
+### 文档
+
+1. [下载](https://www.doxygen.nl/download.html)并安装doxygen；
+2. 打开终端，进入引擎项目主目录，执行：
+```shell
+cd engine
+doxygen
+```
+
+
 ### 问题
 ```text
 ERROR: Visual Studio 2017 must be installed in order to build this target.

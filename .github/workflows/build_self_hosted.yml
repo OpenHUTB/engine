@@ -1,0 +1,28 @@
+name: hutb Windows CI/CD
+
+on:
+  push:
+
+
+jobs:
+  windows-dev:
+    name: Windows CI/CD
+    timeout-minutes: 1440
+    runs-on: self-hosted:windows
+    env:
+      UE4_ROOT: C:\workspace\engine
+      VCVARS: C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: build
+        run: |
+          call setEnv64.bat
+          call Setup.bat
+          .\GenerateProjectFiles.bat
+          "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\bin\MSBuild.exe Engine\Intermediate\ProjectFiles\UE4.vcxproj"
+        shell: cmd

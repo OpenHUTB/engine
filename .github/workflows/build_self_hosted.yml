@@ -21,8 +21,5 @@ jobs:
 
       - name: build
         run: |
-          call setEnv64.bat
-          call Setup.bat
-          .\GenerateProjectFiles.bat
-          "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\bin\MSBuild.exe Engine\Intermediate\ProjectFiles\UE4.vcxproj"
+          call Build.bat
         shell: cmd

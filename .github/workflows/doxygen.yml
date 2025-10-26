@@ -1,0 +1,26 @@
+name: Engine C++ documentation
+
+on: [push]
+    
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # github action 默认签出只包含最后一次提交
+          # 解决方案参考：https://stackoverflow.com/questions/62334460/git-history-in-a-github-action
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          #任务名称：设置Python环境
+      - name: Build doc
+        # This is the version of the action for setting up Python, not the Python version.
+        uses: mattnotmitt/doxygen-action@v1.9.5
+        with:
+          enable-latex: true
+      
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./Doxygen/html/

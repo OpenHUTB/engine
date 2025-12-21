@@ -40,6 +40,7 @@
 #include "VirtualSubjects/LiveLinkBlueprintVirtualSubject.h"
 #endif
 
+#include <limits>
 
 /**
  * Declare stats to see what takes up time in LiveLink
@@ -1667,7 +1668,7 @@ void FLiveLinkClient_Base_DEPRECATED::PushSubjectData(FGuid InSourceGuid, FName 
 	}
 	for (int32 i = MaxNumberOfProperties; i < NumberOfPropertyNames; ++i)
 	{
-		NewData.PropertyValues[i] = INFINITY;
+		NewData.PropertyValues[i] = std::numeric_limits<float>::infinity();
 	}
 	PushSubjectFrameData_AnyThread(SubjectKey, MoveTemp(AnimationStruct));
 }

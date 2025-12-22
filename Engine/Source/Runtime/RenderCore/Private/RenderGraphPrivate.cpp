@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "RenderGraphPrivate.h"
+#include <limits>
+#include <cmath>
 
 #if RDG_ENABLE_DEBUG
 
@@ -170,19 +172,25 @@ bool IsDebugAllowedForResource(const TCHAR* ResourceName)
 
 FLinearColor GetClobberColor()
 {
-	switch (GRDGClobberResources)
+	float x;
+	switch ((int32_t)GRDGClobberResources)
 	{
 	case 1:
-		return FLinearColor(1000, 1000, 1000, 1000);
+		x = 1000.0F;
+		break;
 	case 2:
-		return FLinearColor(NAN, NAN, NAN, NAN);
+		x = std::numeric_limits<float>::quiet_NaN();
+		break;
 	case 3:
-		return FLinearColor(INFINITY, INFINITY, INFINITY, INFINITY);
+		x = std::numeric_limits<float>::infinity();
+		break;
 	case 4:
-		return FLinearColor(0, 0, 0, 0);
+		x = 0.0F;
+		break;
 	default:
 		return FLinearColor::Black;
 	}
+	return FLinearColor(x, x, x, x);
 }
 
 uint32 GetClobberBufferValue()

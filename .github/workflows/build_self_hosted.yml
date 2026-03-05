@@ -21,7 +21,7 @@ jobs:
 
       - name: build
         run: |
-          call Build.bat --git-code %{{ secrets.GIT_CODE }}
+          call Build.bat --git-code ${{ secrets.GIT_CODE }}
         shell: cmd
 
       - uses: mickem/clean-after-action@v1

@@ -14,16 +14,14 @@ if exist "%programfiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Bui
 
 
 :: 检查是否存在 ..\..\..\dependencies\ue4-gitdeps 目录，存在则拷贝到 .git\ue4-gitdeps
-for %%I in ("%~dp0..\..\..") do set "out_dir=%%~fI"
-set dep_dir="%out_dir%dependencies\ue4-gitdeps"
-echo dep_dir=%dep_dir%
-if exist "%dep_dir%" (
-	echo existing dependencies\ue4-gitdeps found.
-	if not exist "%~dp0\.git\ue4-gitdeps" (
-		echo Copying ue4-gitdeps from dependencies to .git directory...
-		xcopy /E /I /Y "%~dp0..\..\..\dependencies\ue4-gitdeps" "%~dp0\.git\ue4-gitdeps"
-		echo Copy dependencies complete.
-	)
+:: for %%I in ("%~dp0\..") do set "build_dir=%%~fI"
+:: echo build_dir=%build_dir%
+
+if not exist "%~dp0\.git\ue4-gitdeps" (
+	echo Cloning ue4-gitdeps to .git directory...
+	git clone https://OpenHUTB:T8w6TYB_r71gGTP3A02B@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git  .git\ue4-gitdeps  &&  cd .git\ue4-gitdeps  && git lfs pull
+	echo Clone engine dependencies complete.
+	cd ..\..
 )
 :: pause
 :: exit /b 0

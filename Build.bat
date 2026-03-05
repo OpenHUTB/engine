@@ -39,7 +39,7 @@ if exist "%programfiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Bui
 if not exist "%~dp0\.git\ue4-gitdeps" (
 	echo Cloning ue4-gitdeps to .git directory...
 	echo git_code=%git_code%
-	git clone echo git clone https://OpenHUTB:%git_code%@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git  .git\ue4-gitdeps  &&  cd .git\ue4-gitdeps  && git lfs pull
+	git clone https://OpenHUTB:%git_code%@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git  .git\ue4-gitdeps  &&  cd .git\ue4-gitdeps  && git lfs pull
 	echo Clone engine dependencies complete.
 	cd ..\..
 )

@@ -10,6 +10,31 @@ set PROMPT_ARGUMENT=--prompt
 :no_prompt_argument
 
 rem 同步依赖...
+rem .\Engine\Binaries\DotNET\GitDependencies.exe 使用方法:
+rem    GitDependencies [选项]
+rem 
+rem 选项:
+rem    --all                         同步所有目录Sync all folders
+rem    --include=<X>                 Include binaries in folders called <X>
+rem    --exclude=<X>                 Exclude binaries in folders called <X>
+rem    --prompt                      Prompt before overwriting modified files
+rem    --force                       Always overwrite modified files
+rem    --root=<PATH>                 Set the repository directory to be sync
+rem    --threads=<N>                 Use N threads when downloading new files
+rem    --dry-run                     Print a list of outdated files and exit
+rem    --max-retries                 Override maximum number of retries per file
+rem    --proxy=<user:password@url>   Sets the HTTP proxy address and credentials
+rem    --cache=<PATH>                Specifies a custom path for the download cache
+rem    --cache-size-multiplier=<N>   Cache size as multiplier of current download
+rem    --cache-days=<N>              Number of days to keep entries in the cache
+rem    --no-cache                    Disable caching of downloaded files
+rem 
+rem Detected settings:
+rem    Excluded folders: none
+rem    Proxy server: none
+rem    Download cache: D:\hutb\Build\engine\.git\ue4-gitdeps
+rem 
+rem Default arguments can be set through the UE4_GITDEPS_ARGS environment variable.
 .\Engine\Binaries\DotNET\GitDependencies.exe %PROMPT_ARGUMENT% %*
 if ERRORLEVEL 1 goto error
 

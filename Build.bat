@@ -2,18 +2,26 @@
 setlocal
 chcp 65001
 
+set IS_DEBUG=false
 
 rem -- 解析命令行参数 --
 
 :parse
+if not "%1"=="" (
     if "%1"=="" (
         goto main
     )
+    if "%1"=="--is_debug" (
+        set IS_DEBUG=true
+        shift
+    )
     if "%1"=="--git-code" (
         set git_code=%2
+		shift
     )
     shift
     goto parse
+)
 
 rem -- MAIN --
 
@@ -43,8 +51,14 @@ if not exist "%~dp0\.git\ue4-gitdeps" (
 	echo Clone engine dependencies complete.
 	cd ..\..
 )
-:: pause
-:: exit /b 0
+
+if %IS_DEBUG%==true (
+	echo Build in Debug mode.
+	set build_configuration="Debug Editor"
+) else (
+	echo Build in Release mode.
+	set build_configuration="Development Editor"
+)
 
 :: 使用 --force 选项来跳过: Checking dependencies... overwrite your changes (y/n)
 call Setup.bat --force
@@ -60,11 +74,11 @@ call GenerateProjectFiles.bat
 
 :: 注意：双引号必须且只能将包含空格的目录
 if exist "%programfiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" (
-	echo "%ProgramFiles%\Microsoft Visual Studio\2022\Community\MSBuild\Current\bin\MSBuild.exe" UE4.sln  /p:Configuration="Development Editor" /p:Platform="Win64" /p:Project="UnrealBuildTool" /p:OutputPath=.\
-	call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\MSBuild\Current\bin\MSBuild.exe" UE4.sln  /p:Configuration="Development Editor" /p:Platform="Win64" /p:Project="UnrealBuildTool" /p:OutputPath=.\
+	echo "%ProgramFiles%\Microsoft Visual Studio\2022\Community\MSBuild\Current\bin\MSBuild.exe" UE4.sln  /p:Configuration=%build_configuration% /p:Platform="Win64" /p:Project="UnrealBuildTool" /p:OutputPath=.\
+	call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\MSBuild\Current\bin\MSBuild.exe" UE4.sln  /p:Configuration=%build_configuration% /p:Platform="Win64" /p:Project="UnrealBuildTool" /p:OutputPath=.\
 ) else (
-	echo call "%ProgramFiles%\Microsoft Visual Studio\2019\Community\MSBuild\Current\bin\MSBuild.exe" UE4.sln  /p:Configuration="Development Editor" /p:Platform="Win64" /p:Project="UnrealBuildTool" /p:OutputPath=.\
-	call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\MSBuild\Current\bin\MSBuild.exe" UE4.sln  /p:Configuration="Development Editor" /p:Platform="Win64" /p:Project="UnrealBuildTool" /p:OutputPath=.\
+	echo call "%ProgramFiles%\Microsoft Visual Studio\2019\Community\MSBuild\Current\bin\MSBuild.exe" UE4.sln  /p:Configuration=%build_configuration% /p:Platform="Win64" /p:Project="UnrealBuildTool" /p:OutputPath=.\
+	call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Community\MSBuild\Current\bin\MSBuild.exe" UE4.sln  /p:Configuration=%build_configuration% /p:Platform="Win64" /p:Project="UnrealBuildTool" /p:OutputPath=.\
 )
 
 :: TODO 判断 Build/engine/Engine/Binaries/Win64/ShaderCompileWorker.exe 是否存在来检查是否编译成功

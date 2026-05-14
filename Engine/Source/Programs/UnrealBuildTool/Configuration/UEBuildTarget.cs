@@ -2309,6 +2309,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		public static bool IsRedistributable(UEBuildModule Module)
 		{
+			return true;
 			if(Module.Rules != null && Module.Rules.IsRedistributableOverride.HasValue)
 			{
 				return Module.Rules.IsRedistributableOverride.Value;

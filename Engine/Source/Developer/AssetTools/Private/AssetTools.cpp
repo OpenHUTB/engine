@@ -1167,10 +1167,10 @@ void UAssetToolsImpl::ImportAssetTasks(const TArray<UAssetImportTask*>& ImportTa
 		Params.bAutomated = ImportTask->bAutomated;
 		Params.SpecifiedFactory = ImportTask->Factory;
 		Filenames[0] = ImportTask->Filename;
-		TArray<UObject*> ImportedObjects = ImportAssetsInternal(Filenames, ImportTask->DestinationPath, nullptr, Params);
+		ImportTask->Result = ImportAssetsInternal(Filenames, ImportTask->DestinationPath, nullptr, Params);
 
-		PackagesToSave.Reset(1); 
-		for (UObject* Object : ImportedObjects)
+		PackagesToSave.Reset(ImportTask->Result.Num());
+		for (UObject* Object : ImportTask->Result)
 		{
 			ImportTask->ImportedObjectPaths.Add(Object->GetPathName());
 			if (ImportTask->bSave)
@@ -2067,6 +2067,7 @@ TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Fi
 			Factory->SetAssetImportTask(Params.AssetImportTask);
 
 			ImportAssetType = Factory->ResolveSupportedClass();
+
 			UObject* Result = Factory->ImportObject(ImportAssetType, Pkg, FName(*Name), RF_Public | RF_Standalone | RF_Transactional, Filename, nullptr, bImportWasCancelled);
 
 			Factory->SetAutomatedAssetImportData(nullptr);

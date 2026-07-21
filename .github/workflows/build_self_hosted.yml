@@ -1,7 +1,8 @@
 name: hutb Windows CI/CD
 
 on:
-  push:
+  pull_request:
+  workflow_dispatch:
 
 
 jobs:

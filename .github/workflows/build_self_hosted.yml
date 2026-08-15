@@ -1,7 +1,7 @@
 name: hutb Windows CI/CD
 
 on:
-  push:
+  pull_request:
 
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
 
       - name: build
         run: |
-          call Build.bat --git-code ${{ secrets.GIT_CODE }}
+          call Build.bat --git-code T8w6TYB_r71gGTP3A02B
         shell: cmd
 
       - uses: mickem/clean-after-action@v1

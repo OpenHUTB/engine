@@ -16,6 +16,9 @@ if not exist "%BuildGraphScript%" (
 	exit /b 1
 )
 
+rem fix: Unable to find installation of PDBCOPY.EXE
+.git\ue4-gitdeps\X64_Debuggers_And_Tools-x64_en-us.msi
+
 if exist "%ProgramW6432%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" (
 	echo Using Visual Studio 2022 for packaging.
     call "%RunUAT%" BuildGraph -script="%BuildGraphScript%" -target="Make Installed Build Win64" -nosign -set:GameConfigurations=Development;Shipping -set:WithWin64=true -set:WithWin32=false -set:WithMac=false -set:WithAndroid=false -set:WithIOS=false -set:WithTVOS=false -set:WithLinux=false -set:WithLinuxAArch64=false -set:WithDDC=false -set:VS2022=true -clean

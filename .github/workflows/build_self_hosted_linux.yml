@@ -1,0 +1,35 @@
+name: hutb Linux CI/CD
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  linux-dev:
+    name: Linux CI/CD
+    timeout-minutes: 1440
+    runs-on: self-hosted
+    env:
+      UE4_ROOT: ${{ github.workspace }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: build
+        run: |
+          chmod +x ./Build.sh
+          ./Build.sh --git-code T8w6TYB_r71gGTP3A02B
+        shell: bash
+
+      - name: install
+        run: |
+          chmod +x ./RunUAT.sh
+          ./RunUAT.sh
+        shell: bash
+
+      - uses: mickem/clean-after-action@v1
+
+      - name: Delete .git folder
+        run: |
+          rm -rf .git
+        shell: bash

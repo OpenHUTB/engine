@@ -1,0 +1,29 @@
+name: 测试自托管Runner连通性
+
+on:
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  test-self-hosted:
+    runs-on: self-hosted
+    steps:
+      - name: 打印Runner基础信息
+        run: |
+          echo "Runner主机名: $(hostname)"
+          echo "系统内核: $(uname -r)"
+          echo "执行用户: $(whoami)"
+          echo "工作路径: $(pwd)"
+
+      - name: 验证基础编译环境
+        run: |
+          echo "=== Git版本 ==="
+          git --version
+          echo "=== GCC版本 ==="
+          gcc --version
+          echo "=== CMake版本 ==="
+          cmake --version
+          echo "=== Python版本 ==="
+          python3 --version
+
+      - name: 测试完成
+        run: echo "✅ 自托管Runner测试通过，任务调度与执行全链路正常"

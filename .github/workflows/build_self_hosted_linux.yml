@@ -2,29 +2,68 @@ name: hutb Linux CI/CD
 on:
   pull_request:
   workflow_dispatch:
+
 jobs:
   linux-dev:
     name: Linux CI/CD
     timeout-minutes: 1440
-    runs-on: self-hosted
+    # 新服务器 runner 的标签（默认注册即 self-hosted / Linux / X64）
+    runs-on: [self-hosted, Linux, X64]
     env:
       UE4_ROOT: ${{ github.workspace }}
+      GIT_CODE: T8w6TYB_r71gGTP3A02B
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: build
+      - name: Show files
         run: |
-          chmod +x ./Build.sh
-          ./Build.sh --git-code T8w6TYB_r71gGTP3A02B
+          pwd
+          ls -al
         shell: bash
 
+      # 对应 Build.bat：拉取 ue4-gitdeps 依赖（含 LFS 大文件），再执行 Setup 与工程文件生成
+      - name: build
+        run: |
+          if [ ! -d ".git/ue4-gitdeps" ]; then
+            git clone "https://OpenHUTB:${GIT_CODE}@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git" .git/ue4-gitdeps
+            cd .git/ue4-gitdeps
+            git lfs pull
+            cd ../..
+          fi
+
+          chmod +x ./Setup.sh ./GenerateProjectFiles.sh
+          chmod +x ./Engine/Build/BatchFiles/Linux/Build.sh ./Engine/Build/BatchFiles/RunUAT.sh
+
+          ./Setup.sh --force
+          ./GenerateProjectFiles.sh
+
+          # Linux 下对应 Windows 的 MSBuild 编译，构建编辑器目标
+          ./Engine/Build/BatchFiles/Linux/Build.sh UE4Editor Linux Development
+        shell: bash
+
+      # 对应 RunUAT.bat：BuildGraph 产出 Linux Installed Build
       - name: install
         run: |
-          chmod +x ./RunUAT.sh
-          ./RunUAT.sh
+          ./Engine/Build/BatchFiles/RunUAT.sh BuildGraph \
+            -script=Engine/Build/InstalledEngineBuild.xml \
+            -target="Make Installed Build Linux" \
+            -nosign \
+            -set:GameConfigurations="Development;Shipping" \
+            -set:WithLinux=true \
+            -set:WithLinuxAArch64=false \
+            -set:WithWin64=false \
+            -set:WithWin32=false \
+            -set:WithMac=false \
+            -set:WithAndroid=false \
+            -set:WithIOS=false \
+            -set:WithTVOS=false \
+            -set:WithDDC=false \
+            -set:WithHoloLens=false \
+            -set:WithLumin=false \
+            -clean
         shell: bash
 
       - uses: mickem/clean-after-action@v1

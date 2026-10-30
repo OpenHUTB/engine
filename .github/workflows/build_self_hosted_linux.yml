@@ -1,0 +1,93 @@
+name: hutb Linux CI/CD
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux-dev:
+    name: Linux CI/CD
+    timeout-minutes: 1440
+    # 新服务器 runner 的标签（默认注册即 self-hosted / Linux / X64）
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      UE4_ROOT: ${{ github.workspace }}
+      GIT_CODE: T8w6TYB_r71gGTP3A02B
+    steps:
+      # 仓库里的 post-checkout hook 会调用没有执行权限的 GitDependencies.sh，导致 checkout 失败
+      - name: Disable git hooks
+        run: |
+          if [ -d .git ]; then
+            git config --local core.hooksPath /dev/null
+          fi
+        shell: bash
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # 保留上次下载的依赖和 SDK 缓存，避免每次重下
+          clean: false
+
+      - name: Show files
+        run: |
+          pwd
+          ls -al
+        shell: bash
+
+      # 复用服务器 ~/ue-cache 里预下载的 SDK，绕开 cdn.unrealengine.com 的单连接限速
+      - name: Restore SDK cache
+        run: |
+          mkdir -p .git/ue4-sdks
+          for f in "$HOME"/ue-cache/*.tar.gz; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f")
+            [ -f ".git/ue4-sdks/$base" ] || cp "$f" ".git/ue4-sdks/$base"
+          done
+          ls -lh .git/ue4-sdks/ || true
+        shell: bash
+
+      # 对应 Build.bat：拉取 ue4-gitdeps 依赖（含 LFS 大文件），再执行 Setup 与工程文件生成
+      - name: build
+        run: |
+          if [ ! -d ".git/ue4-gitdeps" ]; then
+            git clone "https://OpenHUTB:${GIT_CODE}@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git" .git/ue4-gitdeps
+            cd .git/ue4-gitdeps
+            git lfs pull
+            cd ../..
+          fi
+
+          # 仓库从 Windows 提交，执行权限丢失，统一补上（脚本 + 引擎自带二进制）
+          find . -type f -name "*.sh" -exec chmod +x {} +
+          find ./Engine/Binaries ./Engine/Extras -type f -exec chmod +x {} +
+
+          ./Setup.sh --force
+          ./GenerateProjectFiles.sh
+
+          # Linux 下对应 Windows 的 MSBuild 编译，构建编辑器目标
+          ./Engine/Build/BatchFiles/Linux/Build.sh UE4Editor Linux Development
+        shell: bash
+
+      # 对应 RunUAT.bat：BuildGraph 产出 Linux Installed Build
+      - name: install
+        run: |
+          ./Engine/Build/BatchFiles/RunUAT.sh BuildGraph \
+            -script=Engine/Build/InstalledEngineBuild.xml \
+            -target="Make Installed Build Linux" \
+            -nosign \
+            -set:GameConfigurations="Development;Shipping" \
+            -set:WithLinux=true \
+            -set:WithLinuxAArch64=false \
+            -set:WithWin64=false \
+            -set:WithWin32=false \
+            -set:WithMac=false \
+            -set:WithAndroid=false \
+            -set:WithIOS=false \
+            -set:WithTVOS=false \
+            -set:WithDDC=false \
+            -set:WithHoloLens=false \
+            -set:WithLumin=false \
+            -clean
+        shell: bash
+
+      - uses: mickem/clean-after-action@v1
+

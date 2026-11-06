@@ -1,0 +1,155 @@
+name: 自动化测试
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: "测试过滤条件，多个用 + 分隔；Filter: 前缀表示从路径开头匹配"
+        required: false
+        default: "Filter:System.Core.Misc.CString+Filter:System.Core.Misc.PathViews+System.Core.Misc.Algos+System.Core.Misc.AsciiSet+System.Core.Misc.Timespan+System.Core.Misc.DateTime"
+  pull_request:
+
+concurrency:
+  group: automation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  automation-tests:
+    name: Linux 自动化测试
+    timeout-minutes: 600
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      UE4_ROOT: ${{ github.workspace }}
+      TEST_FILTER: ${{ github.event.inputs.test_filter || 'Filter:System.Core.Misc.CString+Filter:System.Core.Misc.PathViews+System.Core.Misc.Algos+System.Core.Misc.AsciiSet+System.Core.Misc.Timespan+System.Core.Misc.DateTime' }}
+    steps:
+      # 仓库里的 post-checkout hook 会调用没有执行权限的 GitDependencies.sh，导致 checkout 失败
+      - name: Disable git hooks
+        run: |
+          if [ -d .git ]; then
+            git config --local core.hooksPath /dev/null
+          fi
+        shell: bash
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # 保留上次下载的依赖和 SDK 缓存，避免每次重下
+          clean: false
+
+      # 复用服务器 ~/ue-cache 里预下载的 SDK
+      - name: Restore SDK cache
+        run: |
+          mkdir -p .git/ue4-sdks
+          for f in "$HOME"/ue-cache/*.tar.gz; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f")
+            [ -f ".git/ue4-sdks/$base" ] || cp "$f" ".git/ue4-sdks/$base"
+          done
+          ls -lh .git/ue4-sdks/ || true
+        shell: bash
+
+      - name: Build editor
+        run: |
+          if [ ! -d ".git/ue4-gitdeps" ]; then
+            : "${GIT_CODE:?仓库未配置 GIT_CODE secret，无法拉取 ue4-gitdeps}"
+            git clone "https://OpenHUTB:${GIT_CODE}@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git" .git/ue4-gitdeps
+            cd .git/ue4-gitdeps
+            git lfs pull
+            cd ../..
+          fi
+
+          # 仓库从 Windows 提交，执行权限丢失，统一补上
+          find . -type f -name "*.sh" -exec chmod +x {} +
+          find ./Engine/Binaries ./Engine/Extras -type f -exec chmod +x {} +
+
+          ./Setup.sh --force
+          ./GenerateProjectFiles.sh
+          ./Engine/Build/BatchFiles/Linux/Build.sh UE4Editor Linux Development
+        shell: bash
+        env:
+          GIT_CODE: ${{ secrets.GIT_CODE }}
+
+      # 引擎仓库自身不含 .uproject，这里生成一个空工程用于运行引擎自带的自动化测试
+      - name: Run automation tests
+        run: |
+          PROJECT_DIR="$RUNNER_TEMP/automation-project"
+          REPORT_DIR="$GITHUB_WORKSPACE/Saved/Automation/Reports"
+          mkdir -p "$PROJECT_DIR/Content"
+          rm -rf "$REPORT_DIR"
+
+          cat > "$PROJECT_DIR/AutomationTest.uproject" <<'JSON'
+          {
+          	"FileVersion": 3,
+          	"EngineAssociation": "",
+          	"Category": "",
+          	"Description": "",
+          	"Modules": []
+          }
+          JSON
+
+          # 服务器上的 runner 可能没有图形会话，优先用 xvfb 提供虚拟显示
+          if command -v xvfb-run >/dev/null 2>&1; then
+            LAUNCHER=(xvfb-run -a -s "-screen 0 1024x768x24")
+          else
+            LAUNCHER=()
+          fi
+
+          set +e
+          "${LAUNCHER[@]}" "$GITHUB_WORKSPACE/Engine/Binaries/Linux/UE4Editor" \
+            "$PROJECT_DIR/AutomationTest.uproject" \
+            -ExecCmds="Automation RunTests ${TEST_FILTER}" \
+            -unattended -nopause -nullrhi -nosound -NoEnginePlugins -log \
+            -TESTEXIT="Automation Test Queue Empty" \
+            -ReportExportPath="$REPORT_DIR" \
+            2>&1 | tee "$GITHUB_WORKSPACE/automation.log"
+          EDITOR_EXIT=${PIPESTATUS[0]}
+          set -e
+
+          echo "EDITOR_EXIT=$EDITOR_EXIT" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$EDITOR_EXIT" -ne 0 ]; then
+            echo "::error::编辑器进程异常退出（$EDITOR_EXIT），见 automation.log"
+            exit 1
+          fi
+        shell: bash
+
+      # 编辑器进程在测试失败时仍返回 0，必须解析报告判定结果
+      - name: Check automation report
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          report_path = os.path.join(os.environ["GITHUB_WORKSPACE"], "Saved", "Automation", "Reports", "index.json")
+          if not os.path.exists(report_path):
+              print("::error::未生成自动化测试报告 index.json")
+              sys.exit(1)
+
+          with open(report_path, encoding="utf-8-sig") as f:
+              report = json.load(f)
+
+          succeeded = report.get("succeeded", 0)
+          failed = report.get("failed", 0)
+          not_run = report.get("notRun", 0)
+          print(f"通过 {succeeded}，失败 {failed}，未运行 {not_run}")
+
+          for test in report.get("tests", []):
+              if test.get("state") != "Success":
+                  print(f"::error::{test.get('fullTestPath')} -> {test.get('state')}")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n### 自动化测试\n\n")
+              f.write(f"| 通过 | 失败 | 未运行 |\n| --- | --- | --- |\n| {succeeded} | {failed} | {not_run} |\n")
+
+          if failed or not_run or succeeded == 0:
+              sys.exit(1)
+          PY
+        shell: bash
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-report
+          path: |
+            Saved/Automation/Reports
+            automation.log
+          if-no-files-found: warn

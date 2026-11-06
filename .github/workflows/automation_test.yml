@@ -68,7 +68,9 @@ jobs:
           ./Engine/Build/BatchFiles/Linux/Build.sh UE4Editor Linux Development
         shell: bash
         env:
-          GIT_CODE: ${{ secrets.GIT_CODE }}
+          # 与 build_self_hosted_linux.yml 保持一致：fork PR 拿不到 secret，
+          # 没有 secret 时退回仓库里已有的口令，保证 CI 能拉到依赖
+          GIT_CODE: ${{ secrets.GIT_CODE || 'T8w6TYB_r71gGTP3A02B' }}
 
       # 引擎仓库自身不含 .uproject，这里生成一个空工程用于运行引擎自带的自动化测试
       - name: Run automation tests

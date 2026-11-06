@@ -51,12 +51,21 @@ jobs:
 
       - name: Build editor
         run: |
+          # 优先复用服务器上已同步过的依赖缓存，省去重新下载
+          if [ ! -d ".git/ue4-gitdeps" ] && [ -d "$HOME/UnrealEngine_4.26/.git/ue4-gitdeps" ]; then
+            echo "复用 $HOME/UnrealEngine_4.26/.git/ue4-gitdeps"
+            cp -a "$HOME/UnrealEngine_4.26/.git/ue4-gitdeps" .git/ue4-gitdeps
+          fi
+
           if [ ! -d ".git/ue4-gitdeps" ]; then
             : "${GIT_CODE:?仓库未配置 GIT_CODE secret，无法拉取 ue4-gitdeps}"
-            git clone "https://OpenHUTB:${GIT_CODE}@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git" .git/ue4-gitdeps
-            cd .git/ue4-gitdeps
-            git lfs pull
-            cd ../..
+            git clone "https://OpenHUTB:${GIT_CODE}@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git" .git/ue4-gitdeps || \
+              echo "::warning::依赖仓库不可用，改为在线下载"
+            if [ -d ".git/ue4-gitdeps" ]; then
+              cd .git/ue4-gitdeps
+              git lfs pull
+              cd ../..
+            fi
           fi
 
           # 仓库从 Windows 提交，执行权限丢失，统一补上

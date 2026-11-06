@@ -63,7 +63,23 @@ jobs:
           find . -type f -name "*.sh" -exec chmod +x {} +
           find ./Engine/Binaries ./Engine/Extras -type f -exec chmod +x {} +
 
-          ./Setup.sh --force
+          # 同步引擎依赖。不同版本的 GitDependencies 对参数写法要求不同，
+          # 依次尝试无参数、-force、--force，直到生成 .ue4dependencies 标记
+          if [ ! -f .ue4dependencies ]; then
+            for arg in "" "-force" "--force"; do
+              echo "同步引擎依赖（参数：${arg:-无}）"
+              ./Engine/Build/BatchFiles/Linux/GitDependencies.sh $arg || true
+              if [ -f .ue4dependencies ]; then
+                break
+              fi
+            done
+          fi
+
+          if [ ! -f .ue4dependencies ]; then
+            echo "::error::引擎依赖同步失败，未生成 .ue4dependencies"
+            exit 1
+          fi
+
           ./GenerateProjectFiles.sh
           ./Engine/Build/BatchFiles/Linux/Build.sh UE4Editor Linux Development
         shell: bash

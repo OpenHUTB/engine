@@ -8,6 +8,12 @@ on:
         required: false
         default: "Filter:System.Core.Misc.CString+Filter:System.Core.Misc.PathViews+System.Core.Misc.Algos+System.Core.Misc.AsciiSet+System.Core.Misc.Timespan+System.Core.Misc.DateTime+Filter:EditConditionParser"
 
+# 同一个 PR/分支只保留最新一次运行：自托管机器单次构建数小时，
+# 连续提交很容易把队列堆起来（历史上 4 个运行同时排队）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   linux-dev:
     name: Linux CI/CD
@@ -67,10 +73,35 @@ jobs:
           find ./Engine/Binaries ./Engine/Extras -type f -exec chmod +x {} +
           find ./Engine/Source/ThirdParty -type f -path "*bin/Linux*" -exec chmod +x {} +
 
-          ./Setup.sh --force
+          # clean:false 会保留上一次运行的工作区。历史上 `touch .ue4dependencies` 留下的
+          # 0 字节文件会让 GitDependencies 报 "There is an error in XML document (0, 0)" 并拒绝同步。
+          if [ -f .ue4dependencies ] && [ ! -s .ue4dependencies ]; then
+            rm -f .ue4dependencies
+          fi
 
-          # Setup 成功即依赖已就绪；GenerateProjectFiles 以该标记判断依赖状态
-          [ -f .ue4dependencies ] || touch .ue4dependencies
+          echo "===== 依赖状态诊断 ====="
+          wc -c .ue4dependencies 2>/dev/null || echo ".ue4dependencies 不存在"
+          ls -l Engine/Binaries/DotNET/UnrealBuildTool.exe 2>/dev/null || echo "UnrealBuildTool.exe 不存在（该文件由 UBT 编译产生，不一定来自依赖同步）"
+          ls -d Engine/Binaries/ThirdParty/Mono/Linux 2>/dev/null || echo "ThirdParty/Mono/Linux 不存在"
+
+          # 官方参数 --exclude=<X>：跳过任意同名目录下的依赖文件
+          # （Program.cs 中 IsExcludedFolder 按路径中的目录名匹配）。
+          # 实测两处会导致同步失败：
+          #   1) Binaries/ThirdParty/Mono/Linux/etc/mono/registry/last-btime —— Mono 运行时改写，
+          #      GitDependencies 判定被修改后重新下载，而该对象不在本地缓存；
+          #   2) Source/ThirdParty/Licenses/Avid_DNxHD_v2.5.2.37_License.pdf —— 清单里有、
+          #      仓库里没有（HTTP 404），只能从 CDN 拉，匿名请求被拒绝（run 42813487948）。
+          # 两者都与编译无关，用官方开关排除。
+          EXCLUDES="--exclude=Licenses --exclude=registry"
+
+          # --dry-run 只列出过期文件、不下载，便于在日志里看清是否还有别的缺失项
+          ./Engine/Build/BatchFiles/Linux/GitDependencies.sh --dry-run $EXCLUDES || true
+
+          ./Setup.sh $EXCLUDES
+
+          echo "===== Setup.sh 之后 ====="
+          ls -l Engine/Binaries/DotNET/UnrealBuildTool.exe 2>/dev/null || echo "UnrealBuildTool.exe 仍不存在"
+          ls -d Engine/Binaries/ThirdParty/Mono/Linux/lib/mono/xbuild 2>/dev/null || echo "xbuild 仍不存在"
 
           ./GenerateProjectFiles.sh
 

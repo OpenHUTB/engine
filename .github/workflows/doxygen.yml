@@ -20,6 +20,8 @@ jobs:
           enable-latex: true
       
       - name: Deploy
+        # fork 里 GITHUB_TOKEN 只读，推 gh-pages 必然 403，仅主仓库执行
+        if: github.repository == 'OpenHUTB/engine'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

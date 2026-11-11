@@ -4,6 +4,7 @@
 #include "Engine/NetSerialization.h"
 #include "UnitTestEnvironment.h"
 #include <cmath>
+#include <limits>
 
 namespace PackedVectorTest
 {
@@ -54,7 +55,7 @@ bool UPackedVectorTest::ExecuteUnitTest()
 		-180817.42f,
 		47.11f,
 		-FMath::Exp2(25.0f), // overflow
-		INFINITY, // non-finite
+		std::numeric_limits<float>::infinity(), // non-finite
 	};
 
 	static const float Quantize100_Values[] =
@@ -63,7 +64,7 @@ bool UPackedVectorTest::ExecuteUnitTest()
 		+180720.42f,
 		-19751216.0f,
 		FMath::Exp2(31.0f),
-		-INFINITY,
+		-std::numeric_limits<float>::infinity(),
 	};
 
 	struct TestCase

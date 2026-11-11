@@ -1,10 +1,11 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 #include "Voronoi/Voronoi.h"
 
-
 THIRD_PARTY_INCLUDES_START
 #include "voro++/voro++.hh"
 THIRD_PARTY_INCLUDES_END
+
+#include <limits>
 
 namespace {
 
@@ -80,7 +81,7 @@ namespace {
 
 		// If points are too far apart, voro++ will ask for unbounded memory to build its grid over space
 		// TODO: Figure out reasonable bounds / behavior for this case
-		ensure(BoundingBoxSize.GetMax() < HUGE_VALF);
+		ensure(BoundingBoxSize.GetMax() < std::numeric_limits<float>::max());
 
 
 		int NumSites = Sites.Num();

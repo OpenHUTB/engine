@@ -1,0 +1,57 @@
+name: hutb Windows CI/CD
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+
+# 同一个 PR/分支只保留最新一次运行：自托管机器单次构建数小时，
+# 连续提交很容易把队列堆起来（历史上 4 个运行同时排队）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-dev:
+    name: Windows CI/CD
+    timeout-minutes: 1440
+    runs-on: self-hosted:windows
+    env:
+      UE4_ROOT: C:\workspace\engine
+      VCVARS: C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat
+
+    steps:
+      # 仓库的 post-checkout hook 会触发 GitDependencies 同步 UE 依赖（约 11.6 GB）。
+      # 同步完成后 hook 可能返回非 0，使得 checkout 步骤整体失败（日志中表现为
+      # "git.exe failed with exit code 1"）。这里允许该步骤失败，再由下一步确认工作区可用。
+      - name: Checkout repository
+        id: checkout
+        continue-on-error: true
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Verify checkout
+        shell: cmd
+        run: |
+          if not exist .git exit /b 1
+          git rev-parse --verify HEAD
+          git status --short
+
+      - name: build
+        run: |
+          call Build.bat --git-code T8w6TYB_r71gGTP3A02B
+        shell: cmd
+
+      - name: install
+        run: |
+          call RunUAT.bat
+        shell: cmd
+
+      - uses: mickem/clean-after-action@v1
+
+      - name: Delete .git folder
+        run: |
+            del /f /s /q .git
+            rd /s /q .git
+        shell: cmd

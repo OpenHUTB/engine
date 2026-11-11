@@ -1,0 +1,118 @@
+# 设置项目标题
+PROJECT_NAME = engine
+
+# 设置文档输出目录
+OUTPUT_DIRECTORY = Doxygen
+
+# 设置文档输出语言
+OUTPUT_LANGUAGE = Chinese
+
+# 为每个类创建子目录
+CREATE_SUBDIRS = YES
+
+# 不显示文件的完整路径
+FULL_PATH_NAMES = NO
+
+# 使用JavaDoc风格注释作为描述
+JAVADOC_AUTOBRIEF = YES
+
+# 设置缓存大小
+LOOKUP_CACHE_SIZE = 3
+
+# 提取所有类和文件
+EXTRACT_ALL = YES
+
+# 提取私有成员
+EXTRACT_PRIVATE = YES
+
+# 提取静态成员
+EXTRACT_STATIC = YES
+
+# 类名和文件名大小写敏感
+CASE_SENSE_NAMES = YES
+
+# 按字母顺序排序描述
+SORT_BRIEF_DOCS = YES
+
+# 不警告未记录的类或文件
+WARN_IF_UNDOCUMENTED = NO
+
+# 警告信息输出到日志文件
+WARN_LOGFILE = Doxygen/warnings.log
+
+# 指定要扫描的文件路径
+INPUT = Engine\Source\Runtime
+
+# 指定要扫描的文件类型
+FILE_PATTERNS = *.cpp *.h *.hpp *.cc
+
+# 排除特定文件
+EXCLUDE = 
+
+# 递归扫描目录
+RECURSIVE = YES
+
+# 包含源代码浏览视图
+SOURCE_BROWSER = YES
+
+# 保留源代码中的注释
+STRIP_CODE_COMMENTS = NO
+
+# 显示函数的被引用关系
+REFERENCED_BY_RELATION = YES
+
+# 显示函数的引用关系
+REFERENCES_RELATION = YES
+
+# 不生成字母排序的索引
+ALPHABETICAL_INDEX = NO
+
+# 支持HTML文档动态显示和隐藏
+HTML_DYNAMIC_SECTIONS = YES
+
+# 不生成索引页
+DISABLE_INDEX = YES
+
+# 不生成树状视图
+GENERATE_TREEVIEW = NO
+
+# 数学公式字体大小
+FORMULA_FONTSIZE = 12
+
+# 不生成LaTeX文档
+GENERATE_LATEX = NO
+
+# 预处理宏展开
+MACRO_EXPANSION = YES
+
+# 仅展开预定义的宏
+EXPAND_ONLY_PREDEF = YES
+
+# 包含文件的搜索路径
+
+# 仅包含指定类型的文件
+INCLUDE_FILE_PATTERNS = *.h *.hpp
+
+# 不隐藏未记录的关系
+HIDE_UNDOC_RELATIONS = NO
+
+# 启用dot工具生成图表
+HAVE_DOT = YES
+
+# 生成类模板关系图
+TEMPLATE_RELATIONS = YES
+
+# 生成函数调用图
+CALL_GRAPH = YES
+
+# 生成函数调用者图
+CALLER_GRAPH = YES
+
+# 图像格式为SVG
+DOT_IMAGE_FORMAT = svg
+
+# 支持交互的SVG图像
+INTERACTIVE_SVG = YES
+
+# 允许dot工具生成多个图像目标
+DOT_MULTI_TARGET = YES

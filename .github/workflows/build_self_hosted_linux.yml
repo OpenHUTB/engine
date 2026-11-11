@@ -1,0 +1,222 @@
+name: hutb Linux CI/CD
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: "自动化测试过滤条件，多个用 + 分隔；Filter: 前缀表示从路径开头匹配"
+        required: false
+        default: "Filter:System.Core.Misc.CString+Filter:System.Core.Misc.PathViews+System.Core.Misc.Algos+System.Core.Misc.AsciiSet+System.Core.Misc.Timespan+System.Core.Misc.DateTime+Filter:EditConditionParser"
+
+# 同一个 PR/分支只保留最新一次运行：自托管机器单次构建数小时，
+# 连续提交很容易把队列堆起来（历史上 4 个运行同时排队）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-dev:
+    name: Linux CI/CD
+    timeout-minutes: 1440
+    # 新服务器 runner 的标签（默认注册即 self-hosted / Linux / X64）
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      UE4_ROOT: ${{ github.workspace }}
+      GIT_CODE: T8w6TYB_r71gGTP3A02B
+      TEST_FILTER: ${{ github.event.inputs.test_filter || 'Filter:System.Core.Misc.CString+Filter:System.Core.Misc.PathViews+System.Core.Misc.Algos+System.Core.Misc.AsciiSet+System.Core.Misc.Timespan+System.Core.Misc.DateTime+Filter:EditConditionParser' }}
+    steps:
+      # 仓库里的 post-checkout hook 会调用没有执行权限的 GitDependencies.sh，导致 checkout 失败
+      - name: Disable git hooks
+        run: |
+          if [ -d .git ]; then
+            git config --local core.hooksPath /dev/null
+          fi
+        shell: bash
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # 保留上次下载的依赖和 SDK 缓存，避免每次重下
+          clean: false
+
+      - name: Show files
+        run: |
+          pwd
+          ls -al
+        shell: bash
+
+      # 复用服务器 ~/ue-cache 里预下载的 SDK，绕开 cdn.unrealengine.com 的单连接限速
+      - name: Restore SDK cache
+        run: |
+          mkdir -p .git/ue4-sdks
+          for f in "$HOME"/ue-cache/*.tar.gz; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f")
+            [ -f ".git/ue4-sdks/$base" ] || cp "$f" ".git/ue4-sdks/$base"
+          done
+          ls -lh .git/ue4-sdks/ || true
+        shell: bash
+
+      # 对应 Build.bat：拉取 ue4-gitdeps 依赖（含 LFS 大文件），再执行 Setup 与工程文件生成
+      - name: build
+        run: |
+          if [ ! -d ".git/ue4-gitdeps" ]; then
+            git clone "https://OpenHUTB:${GIT_CODE}@git.code.tencent.com/OpenHUTB/ue4-gitdeps.git" .git/ue4-gitdeps
+            cd .git/ue4-gitdeps
+            git lfs pull
+            cd ../..
+          fi
+
+          # 仓库从 Windows 提交，执行权限丢失，统一补上（脚本 + 引擎自带二进制 + 第三方工具）
+          find . -type f -name "*.sh" -exec chmod +x {} +
+          find ./Engine/Binaries ./Engine/Extras -type f -exec chmod +x {} +
+          find ./Engine/Source/ThirdParty -type f -path "*bin/Linux*" -exec chmod +x {} +
+
+          # clean:false 会保留上一次运行的工作区。历史上 `touch .ue4dependencies` 留下的
+          # 0 字节文件会让 GitDependencies 报 "There is an error in XML document (0, 0)" 并拒绝同步。
+          if [ -f .ue4dependencies ] && [ ! -s .ue4dependencies ]; then
+            rm -f .ue4dependencies
+          fi
+
+          echo "===== 依赖状态诊断 ====="
+          wc -c .ue4dependencies 2>/dev/null || echo ".ue4dependencies 不存在"
+          ls -l Engine/Binaries/DotNET/UnrealBuildTool.exe 2>/dev/null || echo "UnrealBuildTool.exe 不存在（该文件由 UBT 编译产生，不一定来自依赖同步）"
+          ls -d Engine/Binaries/ThirdParty/Mono/Linux 2>/dev/null || echo "ThirdParty/Mono/Linux 不存在"
+
+          # 官方参数 --exclude=<X>：跳过任意同名目录下的依赖文件
+          # （Program.cs 中 IsExcludedFolder 按路径中的目录名匹配）。
+          # 实测两处会导致同步失败：
+          #   1) Binaries/ThirdParty/Mono/Linux/etc/mono/registry/last-btime —— Mono 运行时改写，
+          #      GitDependencies 判定被修改后重新下载，而该对象不在本地缓存；
+          #   2) Source/ThirdParty/Licenses/Avid_DNxHD_v2.5.2.37_License.pdf —— 清单里有、
+          #      仓库里没有（HTTP 404），只能从 CDN 拉，匿名请求被拒绝（run 42813487948）。
+          # 两者都与编译无关，用官方开关排除。
+          EXCLUDES="--exclude=Licenses --exclude=registry"
+
+          # --dry-run 只列出过期文件、不下载，便于在日志里看清是否还有别的缺失项
+          ./Engine/Build/BatchFiles/Linux/GitDependencies.sh --dry-run $EXCLUDES || true
+
+          ./Setup.sh $EXCLUDES
+
+          echo "===== Setup.sh 之后 ====="
+          ls -l Engine/Binaries/DotNET/UnrealBuildTool.exe 2>/dev/null || echo "UnrealBuildTool.exe 仍不存在"
+          ls -d Engine/Binaries/ThirdParty/Mono/Linux/lib/mono/xbuild 2>/dev/null || echo "xbuild 仍不存在"
+
+          ./GenerateProjectFiles.sh
+
+          # Linux 下对应 Windows 的 MSBuild 编译，构建编辑器目标
+          ./Engine/Build/BatchFiles/Linux/Build.sh UE4Editor Linux Development
+        shell: bash
+
+      # 官方文档要求先启用测试插件（编辑 > 插件 > 测试），这里在工程中启用
+      - name: Run automation tests
+        run: |
+          PROJECT_DIR="$RUNNER_TEMP/automation-project"
+          REPORT_DIR="$GITHUB_WORKSPACE/Saved/Automation/Reports"
+          mkdir -p "$PROJECT_DIR/Content"
+          rm -rf "$REPORT_DIR"
+
+          cat > "$PROJECT_DIR/AutomationTest.uproject" <<'JSON'
+          {
+          	"FileVersion": 3,
+          	"EngineAssociation": "",
+          	"Category": "",
+          	"Description": "",
+          	"Modules": [],
+          	"Plugins": [
+          		{ "Name": "EditorTests", "Enabled": true },
+          		{ "Name": "RuntimeTests", "Enabled": true }
+          	]
+          }
+          JSON
+
+          # runner 可能没有图形会话，优先用 xvfb 提供虚拟显示
+          if command -v xvfb-run >/dev/null 2>&1; then
+            LAUNCHER=(xvfb-run -a -s "-screen 0 1024x768x24")
+          else
+            LAUNCHER=()
+          fi
+
+          set +e
+          "${LAUNCHER[@]}" ./Engine/Binaries/Linux/UE4Editor \
+            "$PROJECT_DIR/AutomationTest.uproject" \
+            -ExecCmds="Automation RunTests $TEST_FILTER" \
+            -unattended -nopause -nullrhi -nosound -log \
+            -TESTEXIT="Automation Test Queue Empty" \
+            -ReportExportPath="$REPORT_DIR" \
+            2>&1 | tee automation.log
+          EDITOR_EXIT=${PIPESTATUS[0]}
+          set -e
+
+          echo "EDITOR_EXIT=$EDITOR_EXIT" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$EDITOR_EXIT" -ne 0 ]; then
+            echo "::error::编辑器进程异常退出（$EDITOR_EXIT），见 automation.log"
+            exit 1
+          fi
+        shell: bash
+
+      # 编辑器进程在测试失败时仍返回 0，必须解析报告判定结果
+      - name: Check automation report
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          report_path = os.path.join(os.environ["GITHUB_WORKSPACE"], "Saved", "Automation", "Reports", "index.json")
+          if not os.path.exists(report_path):
+              print("::error::未生成自动化测试报告 index.json")
+              sys.exit(1)
+
+          with open(report_path, encoding="utf-8-sig") as f:
+              report = json.load(f)
+
+          succeeded = report.get("succeeded", 0)
+          failed = report.get("failed", 0)
+          not_run = report.get("notRun", 0)
+          print(f"通过 {succeeded}，失败 {failed}，未运行 {not_run}")
+
+          for test in report.get("tests", []):
+              if test.get("state") != "Success":
+                  print(f"::error::{test.get('fullTestPath')} -> {test.get('state')}")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("\n### 自动化测试\n\n")
+              f.write(f"| 通过 | 失败 | 未运行 |\n| --- | --- | --- |\n| {succeeded} | {failed} | {not_run} |\n")
+
+          if failed or not_run or succeeded == 0:
+              sys.exit(1)
+          PY
+        shell: bash
+
+      - name: Upload automation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-report
+          path: |
+            Saved/Automation/Reports
+            automation.log
+          if-no-files-found: warn
+
+      # 对应 RunUAT.bat：BuildGraph 产出 Linux Installed Build
+      - name: install
+        run: |
+          ./Engine/Build/BatchFiles/RunUAT.sh BuildGraph \
+            -script=Engine/Build/InstalledEngineBuild.xml \
+            -target="Make Installed Build Linux" \
+            -nosign \
+            -set:GameConfigurations="Development;Shipping" \
+            -set:WithLinux=true \
+            -set:WithLinuxAArch64=false \
+            -set:WithWin64=false \
+            -set:WithWin32=false \
+            -set:WithMac=false \
+            -set:WithAndroid=false \
+            -set:WithIOS=false \
+            -set:WithTVOS=false \
+            -set:WithDDC=false \
+            -set:WithHoloLens=false \
+            -set:WithLumin=false \
+            -clean
+        shell: bash
+
+      - uses: mickem/clean-after-action@v1

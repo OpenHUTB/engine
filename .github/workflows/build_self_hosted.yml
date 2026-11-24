@@ -2,6 +2,11 @@ name: hutb Windows CI/CD
 
 on:
   workflow_dispatch:
+    inputs:
+      test_filter:
+        description: "自动化测试过滤条件，多个用 + 分隔；Filter: 前缀表示路径开头匹配"
+        required: false
+        default: "Filter:System.Core.Misc.CString+Filter:System.Core.Misc.PathViews+System.Core.Misc.Algos+System.Core.Misc.AsciiSet+System.Core.Misc.Timespan+System.Core.Misc.DateTime+Filter:EditConditionParser+Filter:System.Engine.Hutb+System.Engine.Attachment"
 
 
 # 同一个 PR/分支只保留最新一次运行：自托管机器单次构建数小时，
@@ -18,6 +23,7 @@ jobs:
     env:
       UE4_ROOT: C:\workspace\engine
       VCVARS: C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat
+      TEST_FILTER: ${{ github.event.inputs.test_filter || 'Filter:System.Core.Misc.CString+Filter:System.Core.Misc.PathViews+System.Core.Misc.Algos+System.Core.Misc.AsciiSet+System.Core.Misc.Timespan+System.Core.Misc.DateTime+Filter:EditConditionParser+Filter:System.Engine.Hutb+System.Engine.Attachment' }}
 
     steps:
       # 仓库的 post-checkout hook 会触发 GitDependencies 同步 UE 依赖（约 11.6 GB）。
@@ -41,6 +47,72 @@ jobs:
         run: |
           call Build.bat --git-code T8w6TYB_r71gGTP3A02B
         shell: cmd
+
+      # build 之后跑与 Linux 相同的自动化测试，失败时日志和报告也会上传
+      - name: Run automation tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $projectDir = Join-Path $env:RUNNER_TEMP "automation-project"
+          $reportDir = Join-Path $env:GITHUB_WORKSPACE "Saved\Automation\Reports"
+          New-Item -ItemType Directory -Force -Path (Join-Path $projectDir "Content") | Out-Null
+          if (Test-Path $reportDir) { Remove-Item -Recurse -Force $reportDir }
+
+          $uproject = @'
+          {
+          	"FileVersion": 3,
+          	"EngineAssociation": "",
+          	"Category": "",
+          	"Description": "",
+          	"Modules": [],
+          	"Plugins": [
+          		{ "Name": "EditorTests", "Enabled": true },
+          		{ "Name": "RuntimeTests", "Enabled": true }
+          	]
+          }
+          '@
+          [IO.File]::WriteAllText((Join-Path $projectDir "AutomationTest.uproject"), $uproject, (New-Object System.Text.UTF8Encoding($false)))
+
+          $editor = Join-Path $env:GITHUB_WORKSPACE "Engine\Binaries\Win64\UE4Editor-Cmd.exe"
+          if (-not (Test-Path $editor)) { throw "找不到 UE4Editor-Cmd.exe，请确认 build 步骤成功" }
+
+          & $editor "$projectDir\AutomationTest.uproject" `
+            -ExecCmds="Automation RunTests $env:TEST_FILTER" `
+            -unattended -nopause -nullrhi -nosound -log `
+            -TESTEXIT="Automation Test Queue Empty" `
+            -ReportExportPath="$reportDir" 2>&1 | Tee-Object -FilePath automation.log
+          $editorExit = $LASTEXITCODE
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "EDITOR_EXIT=$editorExit"
+          if ($editorExit -ne 0) { throw "编辑器异常退出：$editorExit，请查看 automation.log" }
+
+      # 编辑器在用例失败时也可能返回 0，必须解析报告
+      - name: Check automation report
+        if: always()
+        shell: pwsh
+        run: |
+          $reportPath = Join-Path $env:GITHUB_WORKSPACE "Saved\Automation\Reports\index.json"
+          if (-not (Test-Path $reportPath)) { throw "未找到自动化测试报告 index.json" }
+          $json = (Get-Content -Path $reportPath -Raw).TrimStart([char]0xFEFF)
+          $report = $json | ConvertFrom-Json
+          $succeeded = [int]$report.succeeded
+          $failed = [int]$report.failed
+          $notRun = [int]$report.notRun
+          Write-Host "通过 $succeeded，失败 $failed，未运行 $notRun"
+          foreach ($test in $report.tests) {
+            if ($test.state -ne "Success") { Write-Host "::error::$($test.fullTestPath) -> $($test.state)" }
+          }
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "`n### 自动化测试`n`n| 通过 | 失败 | 未运行 |`n| --- | --- | --- |`n| $succeeded | $failed | $notRun |"
+          if ($failed -gt 0 -or $notRun -gt 0 -or $succeeded -eq 0) { exit 1 }
+
+      - name: Upload automation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-report-windows
+          path: |
+            Saved/Automation/Reports
+            automation.log
+          if-no-files-found: warn
 
       - name: install
         run: |

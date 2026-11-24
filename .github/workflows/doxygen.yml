@@ -1,6 +1,9 @@
 name: Engine C++ documentation
 
-on: [push]
+on:
+  push:
+    branches: [hutb]
+  workflow_dispatch:
     
 jobs:
   work:

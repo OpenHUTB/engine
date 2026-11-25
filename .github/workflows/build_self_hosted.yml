@@ -50,7 +50,7 @@ jobs:
 
       # build 之后跑与 Linux 相同的自动化测试，失败时日志和报告也会上传
       - name: Run automation tests
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
         run: |
           $ErrorActionPreference = "Stop"
           $projectDir = Join-Path $env:RUNNER_TEMP "automation-project"
@@ -88,7 +88,7 @@ jobs:
       # 编辑器在用例失败时也可能返回 0，必须解析报告
       - name: Check automation report
         if: always()
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
         run: |
           $reportPath = Join-Path $env:GITHUB_WORKSPACE "Saved\Automation\Reports\index.json"
           if (-not (Test-Path $reportPath)) { throw "未找到自动化测试报告 index.json" }

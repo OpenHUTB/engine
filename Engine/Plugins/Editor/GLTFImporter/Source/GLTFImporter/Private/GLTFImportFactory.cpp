@@ -96,6 +96,7 @@ UObject* UGLTFImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 
 	TStrongObjectPtr<UGLTFImportOptions> ImporterOptions(NewObject<UGLTFImportOptions>(GetTransientPackage(), TEXT("GLTF Importer Options")));
 	// show import options window
+	if (!IsAutomatedImport())
 	{
 		const FString Filepath    = FPaths::ConvertRelativePathToFull(Filename);
 		const FString PackagePath = InParent->GetPathName();

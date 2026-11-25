@@ -76,12 +76,16 @@ jobs:
           $editor = Join-Path $env:GITHUB_WORKSPACE "Engine\Binaries\Win64\UE4Editor-Cmd.exe"
           if (-not (Test-Path $editor)) { throw "找不到 UE4Editor-Cmd.exe，请确认 build 步骤成功" }
 
+          # 编辑器会往 stderr 打 OpenVR 等告警，Stop 模式下会被当作终止错误
+          $prevErrorActionPreference = $ErrorActionPreference
+          $ErrorActionPreference = "Continue"
           & $editor "$projectDir\AutomationTest.uproject" `
             -ExecCmds="Automation RunTests $env:TEST_FILTER" `
             -unattended -nopause -nullrhi -nosound -log `
             -TESTEXIT="Automation Test Queue Empty" `
             -ReportExportPath="$reportDir" 2>&1 | Tee-Object -FilePath automation.log
           $editorExit = $LASTEXITCODE
+          $ErrorActionPreference = $prevErrorActionPreference
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "EDITOR_EXIT=$editorExit"
           if ($editorExit -ne 0) { throw "编辑器异常退出：$editorExit，请查看 automation.log" }
 
